@@ -569,7 +569,7 @@ class MainWindow(QMainWindow):
         current_layout = QHBoxLayout()
         options_layout.addLayout(current_layout)
 
-        self.current_label = QLabel("Max strength (gauss*m)")
+        self.current_label = QLabel("Max current (A)")
         current_layout.addWidget(self.current_label)
         current_layout.addStretch()
 
@@ -675,7 +675,7 @@ class MainWindow(QMainWindow):
         self.manual_corr_strength_label = QLabel("I = N/A")
         manual_layout.addWidget(self.manual_corr_strength_label)
 
-        manual_layout.addWidget(QLabel("STEP Δk (gauss*m):"))
+        manual_layout.addWidget(QLabel("STEP ΔI (A):"))
         self.manual_step_spinbox = QDoubleSpinBox()
         self.manual_step_spinbox.setRange(-10.0, 10.0)
         self.manual_step_spinbox.setSingleStep(0.01)
@@ -744,7 +744,7 @@ class MainWindow(QMainWindow):
         # QF6X knob (STEP +/-)
         qf_layout = QHBoxLayout()
         dc_layout.addLayout(qf_layout)
-        qf_layout.addWidget(QLabel("QF6X STEP Δk1 (T/m):"))
+        qf_layout.addWidget(QLabel("QF6X STEP ΔI (A):"))
         self.qf6x_step_spinbox = QDoubleSpinBox()
         self.qf6x_step_spinbox.setRange(-20.0, 20.0)
         self.qf6x_step_spinbox.setSingleStep(0.001)
@@ -918,17 +918,15 @@ class MainWindow(QMainWindow):
         linear_group.setLayout(linear_layout)
         ipbsm_group_layout.addWidget(linear_group)
 
-        self._linear_knob_values = {
-            "A_x": 0.0,
-            "E_x": 0.0,
-            "A_y": 0.0,
-            "E_y": 0.0,
-            "Coup1": 0.0,
-            "Coup2": 0.0,
-        }
+        try:
+            linear_names = list(self.interface.get_linear_knob_names())
+        except Exception:
+            linear_names = ["A_x", "E_x", "A_y", "E_y", "Coup1", "Coup2"]
+
+        self._linear_knob_values = {name: 0.0 for name in linear_names}
         self._linear_knob_labels = {}
 
-        for name in ["A_x", "E_x", "A_y", "E_y", "Coup1", "Coup2"]:
+        for name in linear_names:
             row = QHBoxLayout()
             linear_layout.addLayout(row)
             row.addWidget(QLabel(name))
@@ -948,14 +946,16 @@ class MainWindow(QMainWindow):
             minus_btn = QPushButton("−")
             minus_btn.setStyleSheet("background-color: blue; color: white;")
             minus_btn.clicked.connect(
-                lambda _checked=False, knob=name, box=step_box: self.__change_linear_knob(knob, -box.value())
+                lambda _checked=False, knob=name, box=step_box:
+                    self.__change_linear_knob(knob, -box.value())
             )
             row.addWidget(minus_btn)
 
             plus_btn = QPushButton("+")
             plus_btn.setStyleSheet("background-color: red; color: white;")
             plus_btn.clicked.connect(
-                lambda _checked=False, knob=name, box=step_box: self.__change_linear_knob(knob, +box.value())
+                lambda _checked=False, knob=name, box=step_box:
+                    self.__change_linear_knob(knob, +box.value())
             )
             row.addWidget(plus_btn)
 
@@ -964,10 +964,46 @@ class MainWindow(QMainWindow):
         nonlinear_group.setLayout(nonlinear_layout)
         ipbsm_group_layout.addWidget(nonlinear_group)
 
-        for name in ["Y24", "Y46", "Y22", "Y26", "Y66", "Y44"]:
-            btn = QPushButton(name)
-            btn.clicked.connect(lambda _checked=False, knob=name: self.__nonlinear_knob_button_clicked(knob))
-            nonlinear_layout.addWidget(btn)
+        try:
+            nonlinear_names = list(self.interface.get_nonlinear_knob_names())
+        except Exception:
+            nonlinear_names = ["Y24", "Y46", "Y22", "Y26", "Y66", "Y44"]
+
+        self._nonlinear_knob_values = {name: 0.0 for name in nonlinear_names}
+        self._nonlinear_knob_labels = {}
+
+        for name in nonlinear_names:
+            row = QHBoxLayout()
+            nonlinear_layout.addLayout(row)
+            row.addWidget(QLabel(name))
+
+            row.addWidget(QLabel("value:"))
+            val_label = QLabel("+0.0")
+            self._nonlinear_knob_labels[name] = val_label
+            row.addWidget(val_label)
+
+            row.addWidget(QLabel("STEP:"))
+            step_box = QDoubleSpinBox()
+            step_box.setRange(-10.0, 10.0)
+            step_box.setSingleStep(0.1)
+            step_box.setValue(0.1)
+            row.addWidget(step_box)
+
+            minus_btn = QPushButton("−")
+            minus_btn.setStyleSheet("background-color: blue; color: white;")
+            minus_btn.clicked.connect(
+                lambda _checked=False, knob=name, box=step_box:
+                    self.__change_nonlinear_knob(knob, -box.value())
+            )
+            row.addWidget(minus_btn)
+
+            plus_btn = QPushButton("+")
+            plus_btn.setStyleSheet("background-color: red; color: white;")
+            plus_btn.clicked.connect(
+                lambda _checked=False, knob=name, box=step_box:
+                    self.__change_nonlinear_knob(knob, +box.value())
+            )
+            row.addWidget(plus_btn)
 
         # 初期状態読み出し
         try:
@@ -1255,14 +1291,14 @@ class MainWindow(QMainWindow):
                 suggestion.get("correctors_h", []),
                 suggestion.get("delta_k_h", []),
             ):
-                print(f"  {name:8s} : Δk = {dk:+.4g} (gauss*m)")
+                print(f"  {name:8s} : ΔI = {dk:+.4g} (A)")
         if suggestion.get("correctors_v") is not None:
             print("V-plane:")
             for name, dk in zip(
                 suggestion.get("correctors_v", []),
                 suggestion.get("delta_k_v", []),
             ):
-                print(f"  {name:8s} : Δk = {dk:+.4g} (gauss*m)")
+                print(f"  {name:8s} : ΔI = {dk:+.4g} (A)")
         print("======================================================")
 
     def __stop_button_clicked(self):
@@ -1290,7 +1326,7 @@ class MainWindow(QMainWindow):
             for n, v in zip(names, bdes):
                 if n == name:
                     self.manual_corr_strength_label.setText(
-                        f"I = {float(v):+.4g} (gauss*m)"
+                        f"I = {float(v):+.4g} (A)"
                     )
                     return
         except Exception as e:
@@ -1569,11 +1605,13 @@ class MainWindow(QMainWindow):
 
     def __apply_qf6x_step(self, sign: float):
         step = self.qf6x_step_spinbox.value() * sign
-        print(f"GUI: apply_qf6x(dk1={step})")
+        #print(f"GUI: apply_qf6x(dk1={step})")
+        print(f"GUI: apply_qmag_current(QF6X, dA={step})")
         try:
-            self.interface.apply_qf6x(step)
+            #self.interface.apply_qf6x(step)
+            self.interface.apply_qmag_current("QF6X", step)
         except Exception as e:
-            print(f"apply_qf6x is not available: {e}")
+            print(f"apply_qmag_current is not available: {e}")
             return
         # BPM 測定はしない / メッセージのみ
         print("QF6X knob updated.")
@@ -1756,12 +1794,19 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"set_linear_knob not available: {e}")
 
-    def __nonlinear_knob_button_clicked(self, knob_name: str):
-        """Nonlinear knob ボタン（現状はログ出力のみ。将来 set_nonlinear_knob に接続）。"""
-        print(f"Nonlinear knob '{knob_name}' clicked (under development).")
+    def __change_nonlinear_knob(self, knob_name: str, delta: float):
+        """Nonlinear knob の現在値に Δ を加え、Interface 経由で適用。"""
+        old = self._nonlinear_knob_values.get(knob_name, 0.0)
+        new = old + float(delta)
+        self._nonlinear_knob_values[knob_name] = new
+
+        label = self._nonlinear_knob_labels.get(knob_name)
+        if label is not None:
+            label.setText(f"{new:+.3f}")
+
+        print(f"Set nonlinear knob {knob_name} = {new:+.3f}")
         try:
-            # 将来ここで self.interface.set_nonlinear_knob(knob_name, value) を呼ぶ
-            self.interface.set_nonlinear_knob(knob_name, 0.0)
+            self.interface.set_nonlinear_knob(knob_name, new)
         except Exception as e:
             print(f"set_nonlinear_knob not available: {e}")
 
