@@ -21,11 +21,9 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-# ---------------------------------------------------------
-# Matplotlib widgets
-# ---------------------------------------------------------
+
 class MatplotlibWidget(FigureCanvas):
-    """単一軸（SysID 用）"""
+
     def __init__(self, parent=None, title=""):
         fig = Figure(tight_layout=True)
         super().__init__(fig)
@@ -35,7 +33,7 @@ class MatplotlibWidget(FigureCanvas):
 
 
 class OrbitPlotWidget(FigureCanvas):
-    """Orbit monitor 用: 上 x, 下 y （横軸 S[m]）"""
+
     def __init__(self, parent=None):
         fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, tight_layout=True)
         super().__init__(fig)
@@ -62,7 +60,6 @@ class OrbitPlotWidget(FigureCanvas):
         self.ax_y.set_ylabel("Y [mm]")
         self.ax_y.set_xlabel("S [m]")
 
-        # 選択コレクタ位置を縦線で表示
         if corr_S is not None and corr_name is not None:
             if corr_name[:2].upper() == "ZH":
                 self.ax_x.axvline(corr_S, color="pink", alpha=0.3)
@@ -79,14 +76,13 @@ class OrbitPlotWidget(FigureCanvas):
                 dmax = float(arr.max())
                 center = 0.5 * (dmin + dmax)
                 span = dmax - dmin
-                # 20% くらいマージンをつけた半幅
                 half = 0.5 * span * 1.2
                 if half <= 0.0:
                     half = min_half_range
                 half = max(half, min_half_range)
                 ax.set_ylim(center - half, center + half)
 
-        _autoscale_with_min(self.ax_x, x_mm, 2.0)  # 2 mm = 2000 μm
+        _autoscale_with_min(self.ax_x, x_mm, 2.0)  
         _autoscale_with_min(self.ax_y, y_mm, 2.0)
 
         self.draw()
@@ -94,7 +90,6 @@ class OrbitPlotWidget(FigureCanvas):
 
 
 class DispersionPlotWidget(FigureCanvas):
-    """Dispersion monitor 用: 上 H, 下 V。baseline を灰色で重ねる。横軸 S[m]"""
     def __init__(self, parent=None):
         fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, tight_layout=True)
         super().__init__(fig)
@@ -157,7 +152,7 @@ class DispersionPlotWidget(FigureCanvas):
 
 
 # ---------------------------------------------------------
-# Worker (SysID 応答測定)
+# Worker (SysID 
 # ---------------------------------------------------------
 class Worker(QObject):
     plot_data = pyqtSignal(dict, np.ndarray, np.ndarray, np.ndarray, np.ndarray, str)
@@ -190,7 +185,7 @@ class Worker(QObject):
         self.max_curr_v = max_curr_v
         self.Niter = Niter
         self.running = running_flag
-        # 応答行列 (BPM × Corrector)
+
         self.Rx = None
         self.Ry = None
 
@@ -240,7 +235,7 @@ class Worker(QObject):
 
                 Diff_x = (Op["x"] - Om["x"]) / 2.0
                 Diff_y = (Op["y"] - Om["y"]) / 2.0
-                # 応答行列の列を構築 (最後の iteration の値で上書き)
+
                 if kick != 0.0:
                     if self.Rx is None:
                         self.Rx = np.zeros((Diff_x.size, len(self.correctors)))
@@ -273,12 +268,11 @@ class Worker(QObject):
                 self.plot_data.emit(Op, Diff_x, Err_x, Diff_y, Err_y, corrector)
 
 
-        # 応答行列から軌道補正提案を計算
         try:
             if self.Rx is not None and self.Ry is not None:
                 I = self.interface
                 S = self.S
-                # 現在の軌道を取得（指定 BPM 群のみ）
+
                 S.pull(I)
                 orbit_now = S.get_orbit(self.bpms)
                 x_now = np.asarray(orbit_now["x"], dtype=float)
@@ -291,7 +285,7 @@ class Worker(QObject):
                 x_now = x_now.reshape(-1)
                 y_now = y_now.reshape(-1)
 
-                # BPM/Corrector 名と応答行列を保存
+
                 np.save("R_x.npy", self.Rx)
                 np.save("R_y.npy", self.Ry)
                 np.save("R_correctors.npy", np.array(self.correctors, dtype=object))
@@ -299,7 +293,7 @@ class Worker(QObject):
 
                 suggestion = {}
 
-                # H-plane: 水平コレクタのみ
+                # H-plane
                 try:
                     h_names_all = set(S.get_hcorrectors_names())
                 except Exception:
@@ -308,12 +302,10 @@ class Worker(QObject):
                 h_idx = [i for i, name in enumerate(self.correctors) if name in h_names_all]
                 if len(h_idx) > 0:
                     R_sub = self.Rx[:, h_idx]
-                    if R_sub.ndim == 0:               # スカラ (正しくは起きないはずだが保険)
+                    if R_sub.ndim == 0:              
                         R_sub = np.array([[float(R_sub)]])
-                    elif R_sub.ndim == 1:             # 列数1の場合は (N,) になってしまう
+                    elif R_sub.ndim == 1:          
                         R_sub = R_sub[:, np.newaxis] 
-                    
-                    # 最小二乗で Δk を計算 (R_sub Δk ≈ -x_now)
                     dk_h, *_ = np.linalg.lstsq(R_sub, -x_now, rcond=1e-3)
                     dk_h = np.asarray(dk_h, dtype=float)
                     dk_h = np.clip(dk_h, -5.0, 5.0)
@@ -323,7 +315,7 @@ class Worker(QObject):
                     np.save("suggestion_h_correctors.npy", np.array(corr_h, dtype=object))
                     np.save("suggestion_h_delta_k.npy", dk_h)
 
-                # V-plane: 垂直コレクタのみ
+                # V-plane
                 try:
                     v_names_all = set(S.get_vcorrectors_names())
                 except Exception:
@@ -332,9 +324,9 @@ class Worker(QObject):
                 v_idx = [i for i, name in enumerate(self.correctors) if name in v_names_all]
                 if len(v_idx) > 0:
                     R_sub = self.Ry[:, v_idx]
-                    if R_sub.ndim == 0:               # スカラ（保険）
+                    if R_sub.ndim == 0:               
                         R_sub = np.array([[float(R_sub)]])
-                    elif R_sub.ndim == 1:             # 列数1で (N,) になっている場合
+                    elif R_sub.ndim == 1:             
                         R_sub = R_sub[:, np.newaxis]
                     dk_v, *_ = np.linalg.lstsq(R_sub, -y_now, rcond=1e-3)
                     dk_v = np.asarray(dk_v, dtype=float)
@@ -345,17 +337,12 @@ class Worker(QObject):
                     np.save("suggestion_v_correctors.npy", np.array(corr_v, dtype=object))
                     np.save("suggestion_v_delta_k.npy", dk_v)
 
-                # メインスレッドに通知
                 self.suggestion_ready.emit(suggestion)
         except Exception as e:
             print(f"Failed to compute/save orbit-correction suggestion: {e}")
 
         self.finished.emit()
 
-
-# ---------------------------------------------------------
-# ログ用ストリーム
-# ---------------------------------------------------------
 class EmittingStream(QObject):
     textWritten = pyqtSignal(str)
 
@@ -402,7 +389,6 @@ class MainWindow(QMainWindow):
         correctors = interface.get_correctors()
         correctors_list = correctors["names"]
 
-        # corrector の最大値推定
         if correctors_list is not None:
             hcorrs = interface.get_hcorrectors_names()
             vcorrs = interface.get_vcorrectors_names()
@@ -429,16 +415,13 @@ class MainWindow(QMainWindow):
             max_curr_v = 1.0
 
 
-        # misalignment 用 baseline dispersion
         self._misalign_baseline_eta_x = None
         self._misalign_baseline_eta_y = None
 
-        # Orbit 再描画用のキャッシュ
         self._last_orbit_s = None
         self._last_orbit_x = None
         self._last_orbit_y = None
 
-        # Response からの補正提案をキャッシュ
         self._last_suggestion = None
 
         self.running = threading.Event()
@@ -458,16 +441,13 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         main_layout.addWidget(self.tabs, 1)
 
-        # ==== Response Tab ====
         response_tab = QWidget()
         response_main_layout = QHBoxLayout(response_tab)
         self.tabs.addTab(response_tab, "Response")
 
-        # 左: Correctors / BPMs
         resp_left = QVBoxLayout()
         response_main_layout.addLayout(resp_left, 1)
 
-        # Correctors
         correctors_layout = QHBoxLayout()
         resp_left.addLayout(correctors_layout)
 
@@ -502,7 +482,6 @@ class MainWindow(QMainWindow):
         )
         button_layout.addWidget(self.clear_correctors_button)
 
-        # BPMs
         bpms_layout = QHBoxLayout()
         resp_left.addLayout(bpms_layout)
 
@@ -529,11 +508,9 @@ class MainWindow(QMainWindow):
         self.clear_bpms_button.clicked.connect(self.__clear_bpms_button_clicked)
         button_layout2.addWidget(self.clear_bpms_button)
 
-        # 右: SysID 設定とプロット+START/STOP
         resp_right = QVBoxLayout()
         response_main_layout.addLayout(resp_right, 2)
 
-        # Info
         self.info_label = QLabel("Data Storage:")
         self.info_label.setSizePolicy(
             QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
@@ -544,7 +521,6 @@ class MainWindow(QMainWindow):
         self.working_directory_input.setText(dir_name)
         resp_right.addWidget(self.working_directory_input)
 
-        # Options
         self.options_label = QLabel("SysID Options")
         self.options_label.setSizePolicy(
             QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
@@ -554,7 +530,6 @@ class MainWindow(QMainWindow):
         options_layout = QVBoxLayout()
         resp_right.addLayout(options_layout)
 
-        # Cycle mode
         cycle_mode_layout = QHBoxLayout()
         options_layout.addLayout(cycle_mode_layout)
 
@@ -565,7 +540,6 @@ class MainWindow(QMainWindow):
         self.cycle_mode_combobox.addItems(["Repeat all"])
         cycle_mode_layout.addWidget(self.cycle_mode_combobox)
 
-        # Max currents
         current_layout = QHBoxLayout()
         options_layout.addLayout(current_layout)
 
@@ -589,7 +563,6 @@ class MainWindow(QMainWindow):
         self.max_vertical_current_spinbox.setSingleStep(0.01)
         current_layout.addWidget(self.max_vertical_current_spinbox)
 
-        # Orbit Excursion
         excursion_layout = QHBoxLayout()
         options_layout.addLayout(excursion_layout)
 
@@ -613,17 +586,14 @@ class MainWindow(QMainWindow):
         self.vertical_excursion_spinbox.setSingleStep(0.1)
         excursion_layout.addWidget(self.vertical_excursion_spinbox)
 
-        # SysID plot
         self.plot = MatplotlibWidget(self, title="Response (SysID)")
         resp_right.addWidget(self.plot)
 
-        # SysID plot queue
         self._plot_queue = deque()
         self._plot_timer = QTimer()
         self._plot_timer.timeout.connect(self.__flush_plot_queue)
         self._plot_timer.start(200)
 
-        # START / STOP buttons (Response 内)
         buttons_layout = QHBoxLayout()
         resp_right.addLayout(buttons_layout)
 
@@ -637,7 +607,6 @@ class MainWindow(QMainWindow):
         self.stop_button.clicked.connect(self.__stop_button_clicked)
         buttons_layout.addWidget(self.stop_button)
 
-        # ==== Orbit Tab ====
         orbit_tab = QWidget()
         orbit_layout = QVBoxLayout(orbit_tab)
         self.tabs.addTab(orbit_tab, "Orbit")
@@ -647,7 +616,6 @@ class MainWindow(QMainWindow):
         oc_group.setLayout(oc_layout)
         orbit_layout.addWidget(oc_group)
 
-        # Orbit plot
         self.orbit_plot = OrbitPlotWidget(self)
         oc_layout.addWidget(self.orbit_plot)
 
@@ -657,9 +625,7 @@ class MainWindow(QMainWindow):
         self.orbit_measure_button.clicked.connect(self.__measure_orbit_button_clicked)
         self.orbit_measure_button.setStyleSheet("background-color: green; color: white;")
         orbit_button_layout.addWidget(self.orbit_measure_button)
-        # Orbit 再描画（ピンク線のみ更新）
 
-        # Manual corrector control (STEP +/-)
         manual_layout = QHBoxLayout()
         oc_layout.addLayout(manual_layout)
         manual_layout.addWidget(QLabel("Manual corrector:"))
@@ -701,7 +667,6 @@ class MainWindow(QMainWindow):
         )
         self.__update_manual_corr_strength_label()
 
-        # Response からの提案を適用
         suggest_row = QHBoxLayout()
         oc_layout.addLayout(suggest_row)
 
@@ -803,7 +768,6 @@ class MainWindow(QMainWindow):
         ipbsm_group.setLayout(ipbsm_group_layout)
         ipbsm_layout.addWidget(ipbsm_group)
 
-        # --- 上段: modulation と σ_y (Interface 側から取得) ---
         mod_group = QGroupBox("IPBSM status")
         mod_layout = QHBoxLayout()
         mod_group.setLayout(mod_layout)
@@ -825,7 +789,6 @@ class MainWindow(QMainWindow):
         self.ipbsm_sigma_label = QLabel("σ_y = N/A")
         ipbsm_group_layout.addWidget(self.ipbsm_sigma_label)
 
-        # --- 中段: QF1FF / QD0FF 調整 ---
         qf1qd0_group = QGroupBox("QF1FF / QD0FF strength & alignment (relative Δ)")
         qf1qd0_group_layout = QVBoxLayout()
         qf1qd0_group.setLayout(qf1qd0_group_layout)
@@ -835,7 +798,6 @@ class MainWindow(QMainWindow):
             QLabel("Δx, Δy: [μm], Δroll: [μrad], Δk1: [1/m²] （既存 misalignment への相対変化）")
         )
 
-        # QF1FF 行
         qf1_row = QHBoxLayout()
         qf1qd0_group_layout.addLayout(qf1_row)
         qf1_row.addWidget(QLabel("QF1FF Δ:"))
@@ -865,7 +827,6 @@ class MainWindow(QMainWindow):
         self.qf1_dk1_spinbox.setValue(0.0)
         qf1_row.addWidget(self.qf1_dk1_spinbox)
 
-        # QD0FF 行
         qd0_row = QHBoxLayout()
         qf1qd0_group_layout.addLayout(qd0_row)
         qd0_row.addWidget(QLabel("QD0FF Δ:"))
@@ -895,13 +856,11 @@ class MainWindow(QMainWindow):
         self.qd0_dk1_spinbox.setValue(0.0)
         qd0_row.addWidget(self.qd0_dk1_spinbox)
 
-        # 現在状態表示
         self.qf1_state_label = QLabel("QF1FF: N/A")
         self.qd0_state_label = QLabel("QD0FF: N/A")
         qf1qd0_group_layout.addWidget(self.qf1_state_label)
         qf1qd0_group_layout.addWidget(self.qd0_state_label)
 
-        # ボタン行
         qf1qd0_btn_row = QHBoxLayout()
         qf1qd0_group_layout.addLayout(qf1qd0_btn_row)
         self.qf1qd0_apply_button = QPushButton("Apply Δ to QF1FF/QD0FF")
@@ -912,7 +871,6 @@ class MainWindow(QMainWindow):
         self.qf1qd0_refresh_button.clicked.connect(self.__update_qf1qd0_state)
         qf1qd0_btn_row.addWidget(self.qf1qd0_refresh_button)
 
-        # --- 下段: knobs ---
         linear_group = QGroupBox("Linear knobs")
         linear_layout = QVBoxLayout()
         linear_group.setLayout(linear_layout)
@@ -1005,7 +963,6 @@ class MainWindow(QMainWindow):
             )
             row.addWidget(plus_btn)
 
-        # 初期状態読み出し
         try:
             self.__update_qf1qd0_state()
             self.__refresh_ipbsm_state()
@@ -1073,12 +1030,10 @@ class MainWindow(QMainWindow):
         self.mis_reset_button.clicked.connect(self.__reset_misalignment_clicked)
         mis_button_layout.addWidget(self.mis_reset_button)
 
-        # ログウィンドウ（全タブ共通）
         self.log_widget = QPlainTextEdit()
         self.log_widget.setReadOnly(True)
         main_layout.addWidget(self.log_widget)
 
-        # stdout/stderr リダイレクト
         self._stdout_stream = EmittingStream()
         self._stdout_stream.textWritten.connect(self._append_log_text)
         self._old_stdout = sys.stdout
@@ -1281,7 +1236,6 @@ class MainWindow(QMainWindow):
 
 
     def __store_suggestion(self, suggestion: dict):
-        """Worker から送られてきた補正提案を保存・ログ出力"""
         self._last_suggestion = suggestion
 
         print("===== Suggested orbit correction (from Response) =====")
@@ -1308,7 +1262,6 @@ class MainWindow(QMainWindow):
 
 
     def __update_manual_corr_strength_label(self):
-        """Manual corrector の現在値（bdes）をラベルに表示。"""
         if not hasattr(self, "manual_corr_strength_label"):
             return
         name = self.manual_corr_combobox.currentText()
@@ -1334,20 +1287,14 @@ class MainWindow(QMainWindow):
         self.manual_corr_strength_label.setText("I = N/A")
 
     def __get_working_directory(self) -> str:
-        """
-        GUI 上の working_directory_input に入力されたパスをもとに、
-        実際に使う作業ディレクトリの絶対パスを返す。
-        """
         text = self.working_directory_input.text().strip()
-        # 未入力なら、起動時のカレントディレクトリを使う
+
         if not text:
             return self.cwd
 
-        # 絶対パスならそのまま使う
         if os.path.isabs(text):
             return text
 
-        # 相対パスなら self.cwd からの相対パスとして扱う
         return os.path.join(self.cwd, text)
 
 
@@ -1359,7 +1306,6 @@ class MainWindow(QMainWindow):
         x = np.mean(bpms["x"], axis=0)
         y = np.mean(bpms["y"], axis=0)
 
-        # S[m] を取得。未実装の場合は index にフォールバック。
         try:
             s = np.asarray(self.interface.get_bpms_S(), dtype=float)
             if s.size != x.size:
@@ -1368,7 +1314,6 @@ class MainWindow(QMainWindow):
             print(f"get_bpms_S not available, fallback to index: {e}")
             s = np.arange(x.size, dtype=float)
 
-        # Orbit をキャッシュ
         self._last_orbit_s = s
         self._last_orbit_x = x
         self._last_orbit_y = y
@@ -1384,7 +1329,6 @@ class MainWindow(QMainWindow):
         self.orbit_plot.update_orbit(s, x, y, corr_S=corr_S, corr_name=corr_name)
 
     def __where_button_clicked(self):
-        """最後に測定した Orbit を使って、選択中コレクタ位置だけ更新して再描画。"""
         if self._last_orbit_s is None:
             print("No cached orbit. Please measure orbit first.")
             return
@@ -1406,11 +1350,7 @@ class MainWindow(QMainWindow):
         )
 
     def __get_suggest_working_directory(self) -> str:
-        """
-        Apply suggested correction で使う作業ディレクトリ。
-        - suggest_workdir_input に値があればそれを優先
-        - 空欄なら __get_working_directory() の設定を使う
-        """
+
         if hasattr(self, "suggest_workdir_input"):
             text = self.suggest_workdir_input.text().strip()
             if text:
@@ -1420,10 +1360,7 @@ class MainWindow(QMainWindow):
         return self.__get_working_directory()
     
     def __load_suggestion_from_disk(self) -> bool:
-        """
-        現在の suggest 用 working directory から suggestion_*.npy を読み込み、
-        self._last_suggestion に格納する。
-        """
+
         dir_name = self.__get_suggest_working_directory()
         files = {
             "h_corr": os.path.join(dir_name, "suggestion_h_correctors.npy"),
@@ -1464,7 +1401,6 @@ class MainWindow(QMainWindow):
 
 
     def __apply_suggested_correction(self):
-        """Response で計算した補正提案をまとめて適用"""
         if not self.__load_suggestion_from_disk():
             print("No suggestion found in working dir")
             return
@@ -1503,7 +1439,7 @@ class MainWindow(QMainWindow):
             print(f"Error in vary_correctors: {e}")
             return
 
-        # 現在値を取得してメッセージ表示（BPM 測定はしない）
+
         try:
             corr_data = self.interface.get_correctors()
             names = corr_data["names"]
@@ -1526,10 +1462,6 @@ class MainWindow(QMainWindow):
     # Dispersion monitor + knobs
     # ---------------------------------------------------------
     def __measure_dispersion_button_clicked(self):
-        """
-        interface.measure_dispersion() に丸投げ。
-        RF-Track でも実機でも、Interface 側が処理を隠蔽する。
-        """
         try:
             result = self.interface.measure_dispersion()
         except Exception as e:
@@ -1547,7 +1479,6 @@ class MainWindow(QMainWindow):
             print("Empty dispersion arrays.")
             return
 
-        # S[m] を取得。未実装の場合は index にフォールバック。
         try:
             s = np.asarray(self.interface.get_bpms_S(), dtype=float)
             if s.size != eta_x.size:
@@ -1556,7 +1487,6 @@ class MainWindow(QMainWindow):
             print(f"get_bpms_S not available, fallback to index: {e}")
             s = np.arange(eta_x.size, dtype=float)
 
-        # baseline がまだなら、最初の測定を baseline にする
         if self._misalign_baseline_eta_x is None:
             self._misalign_baseline_eta_x = eta_x.copy()
             self._misalign_baseline_eta_y = eta_y.copy()
@@ -1572,7 +1502,6 @@ class MainWindow(QMainWindow):
 
 
     def __update_qf6x_strength_label(self):
-        """QF6X の現在の k1 をラベルに表示（シミュレーション用）。"""
         if not hasattr(self, "qf6x_curr_label"):
             return
         try:
@@ -1679,7 +1608,6 @@ class MainWindow(QMainWindow):
     # IPBSM: modulation / QF1FF/QD0FF / knobs
     # ---------------------------------------------------------
     def __refresh_ipbsm_state(self):
-        """Interface 経由で IPBSM 状態 (M, angle, sigma_y) を取得して表示。"""
         try:
             state = self.interface.get_ipbsm_state()
         except Exception as e:
@@ -1779,7 +1707,6 @@ class MainWindow(QMainWindow):
         self.__update_qf1qd0_state()
 
     def __change_linear_knob(self, knob_name: str, delta: float):
-        """Linear knob の現在値に Δ を加え、Interface 経由で適用。"""
         old = self._linear_knob_values.get(knob_name, 0.0)
         new = old + float(delta)
         self._linear_knob_values[knob_name] = new
@@ -1795,7 +1722,6 @@ class MainWindow(QMainWindow):
             print(f"set_linear_knob not available: {e}")
 
     def __change_nonlinear_knob(self, knob_name: str, delta: float):
-        """Nonlinear knob の現在値に Δ を加え、Interface 経由で適用。"""
         old = self._nonlinear_knob_values.get(knob_name, 0.0)
         new = old + float(delta)
         self._nonlinear_knob_values[knob_name] = new

@@ -5,7 +5,6 @@ import RF_Track as rft
 import ipbsm_calc
 from knobs import KnobSystem
 
-from misalignment_generator import RandomMisalignment
 
 
 class InterfaceATF2_Ext_RFTrack:
