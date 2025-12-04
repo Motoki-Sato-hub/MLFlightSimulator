@@ -5,13 +5,7 @@ from epics import PV, ca
 
 
 class InterfaceATF2_Ext:
-    """
-    実機 ATF2 Ext インターフェース。
-    - 既存の SysID 用 API (get_bpms, get_correctors, push, vary_correctors, ...)
-    - シミュレーションと同じシグネチャの新 API
-      (measure_dispersion, apply_qf6x, apply_sum_knob, apply_random_misalignment, reset_lattice)
-      を用意するが、実装は後で PV 名を埋めていく想定。
-    """
+
 
     def get_name(self):
         return "ATF2_Ext"
@@ -69,9 +63,6 @@ class InterfaceATF2_Ext:
             "ext:EXTcharge", "linacbt:BTEcharge", "BIM:DR:nparticles", "BIM:IP:nparticles"
         ]
 
-    # ---------------------------------------------------------------
-    # 既存 API
-    # ---------------------------------------------------------------
     def change_energy(self, *args):
         pass
 
@@ -103,19 +94,15 @@ class InterfaceATF2_Ext:
         return [i for i, s in enumerate(self.sequence) if s in names]
 
     def get_bpms_S(self):
-        """
-        実機では S[m] をここで設計値から与える想定。
-        いまは未実装のため、例外を投げる。
-        """
-        raise NotImplementedError(
-            "get_bpms_S is not implemented yet for InterfaceATF2_Ext."
-        )
+        print("Reading BPM S-positions...")
+
+        p = PV("LINAC:monitors")
+        a = p.get().reshape((-1, 20))
+        S_all = a[:, 4]
+        S = S_all[self.bpm_indexes]
+        return np.array(S)
 
     def get_element_S(self, name: str) -> float:
-        """
-        任意の要素名の S[m] を返す想定。
-        いまは未実装のため、例外を投げる。
-        """
         raise NotImplementedError(
             "get_element_S is not implemented yet for InterfaceATF2_Ext."
         )
