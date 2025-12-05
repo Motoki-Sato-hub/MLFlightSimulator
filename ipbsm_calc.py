@@ -6,12 +6,14 @@
 
 import numpy as np
 
+PI = np.pi
+LAMBDA = 532e-9  # laser wavelength [m]
 
 # ============================================================
 #  RMS beam size (simple)
 # ============================================================
 def sigma_from_array(arr):
-    """Compute RMS beam size: sqrt(<x^2> - <x>^2)."""
+    """Compute RMS beam size: sqrt(<y^2> - <y>^2)."""
     if len(arr) < 2:
         return -10000.0
     mean = np.mean(arr)
@@ -21,11 +23,8 @@ def sigma_from_array(arr):
 # ============================================================
 #  Core beam size (SAD sigmac)
 # ============================================================
-def core_sigma(arr, cut=1.5):
-    """
-    SAD sigmac algorithm:
-    iterative trimming using |x - mean| < sigma * cut
-    """
+def core_sigma(arr, cut=2.0):
+
     data = arr.copy()
     sig = -100.0
     ncut = 1
@@ -40,6 +39,17 @@ def core_sigma(arr, cut=1.5):
         data = new_data
 
     return sig
+
+def pitch_from_angle(degMode):
+    return LAMBDA/2.0/np.sin(np.deg2rad(degMode/2.0))
+
+def sigmay_from_modulation(modu, degMode):
+    pitch = pitch_from_angle(degMode)
+    return pitch/PI * np.sqrt(0.5*np.log(np.abs(np.cos(np.deg2rad(degMode))) / modu))
+
+def modulation_from_sigmay(sigy, degMode):
+    pitch = pitch_from_angle(degMode)
+    return np.abs(np.cos(np.deg2rad(degMode))) * np.exp(-2*(PI*sigy/pitch)**2)
 
 
 # ============================================================
@@ -63,24 +73,18 @@ def sigmayIPBSM(modu, degMode):
 # ============================================================
 #  macropartIPBSMdirect : modulation calculation
 # ============================================================
-def macropartIPBSMdirect(data, degMode):
+def macropartIPBSM_direct(data, degMode):
     """
-    SAD macropartIPBSMdirect[data,degMode]
-    Computes IPBSM modulation from macro-particle distribution.
+    data: ndarray of y positions [m]
+    degMode: mode angle
     """
-    wavelength = 532e-9
-    pitch = wavelength / (2.0 * np.sin(np.deg2rad(degMode / 2.0)))
-
-    # Phase term 2π y / pitch
-    phase = 2.0 * np.pi * data / pitch
-
+    pitch = pitch_from_angle(degMode)
+    phase = 2*PI*data/pitch
     Pterm = np.sum(np.cos(phase))
     Qterm = np.sum(np.sin(phase))
-
-    Cfac = np.cos(np.deg2rad(degMode))  # mode-angle correction
-    Modulation = Cfac * np.sqrt(Pterm * Pterm + Qterm * Qterm) / len(data)
-
-    return Modulation
+    Cfac = np.cos(np.deg2rad(degMode))
+    modulation = abs(Cfac) * np.sqrt(Pterm**2 + Qterm**2) / len(data)
+    return modulation
 
 
 # ============================================================
@@ -88,31 +92,35 @@ def macropartIPBSMdirect(data, degMode):
 # ============================================================
 def FuncIPBSMbeamsize(data):
     """
-    SAD FuncIPBSMbeamsize[data] の完全移植版。
-
-    Input:
-        data : 1D numpy array [m]
-
-    Output:
-        degMode : 8 / 30 / 174 (depends on RMS beam size)
-        ModIPBSM : IPBSM modulation
-        SigIPBSM : extracted beam size [m]
+    data: ndarray of y positions [m]
+    return: (degMode, modulation, sigma_y [m])
     """
-    # RMS beam size in nm
-    RMS_nm = sigma_from_array(data) * 1e9
+    RMSbeamsize = np.std(data)  # [m]
+    RMSbeamsize_nm = RMSbeamsize*1e9
 
-    # Determine degMode exactly as SAD does
-    if RMS_nm >= 300:
+    # mode selection
+    if RMSbeamsize_nm >= 600:
+        degMode = 2
+    elif RMSbeamsize_nm >= 400:
+        degMode = 4
+    elif RMSbeamsize_nm >= 200:
         degMode = 8
-    if RMS_nm < 300:
+    elif RMSbeamsize_nm >= 70:
         degMode = 30
-    if RMS_nm < 70:
+    else:
         degMode = 174
 
-    # Compute modulation
-    ModIPBSM = macropartIPBSMdirect(data, degMode)
-
-    # Compute beam size from modulation
-    SigIPBSM = sigmayIPBSM(ModIPBSM, degMode)
-
+    ModIPBSM = macropartIPBSM_direct(data, degMode)
+    SigIPBSM = sigmay_from_modulation(ModIPBSM, degMode)
     return degMode, ModIPBSM, SigIPBSM
+
+def BeamStatistics(track_bsizes):
+    """
+    track_bsizes: list or ndarray of beam sizes (float)
+    return: (mean, stdev, sdom)
+    """
+    track_bsizes = np.array(track_bsizes)
+    mean = np.mean(track_bsizes)
+    stdev = np.std(track_bsizes, ddof=1)
+    sdom = stdev / np.sqrt(len(track_bsizes))
+    return mean, stdev, sdom

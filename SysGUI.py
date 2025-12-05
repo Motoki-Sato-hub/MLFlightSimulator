@@ -918,7 +918,7 @@ class MainWindow(QMainWindow):
             row.addWidget(plus_btn)
 
         nonlinear_group = QGroupBox("Nonlinear knobs (under development)")
-        nonlinear_layout = QHBoxLayout()
+        nonlinear_layout = QVBoxLayout()
         nonlinear_group.setLayout(nonlinear_layout)
         ipbsm_group_layout.addWidget(nonlinear_group)
 

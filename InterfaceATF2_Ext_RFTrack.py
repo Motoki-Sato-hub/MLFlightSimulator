@@ -218,7 +218,10 @@ class InterfaceATF2_Ext_RFTrack:
                 tmm = 0.0
 
             if corrector in self.kl_per_A:
-                bdes[i] = tmm / self.kl_per_A[corrector]   # I = Tmm / (Tmm/A)
+                if self.kl_per_A[corrector] == 0.0:
+                    bdes[i] = 0.0
+                else:
+                    bdes[i] = tmm / self.kl_per_A[corrector]   # I = Tmm / (Tmm/A)
             else:
                 bdes[i] = 0.0    # 係数未設定なら 0A として返す
 
@@ -325,9 +328,9 @@ class InterfaceATF2_Ext_RFTrack:
                 y = elem.get_offsets()[0][1] #m
                 z = elem.get_offsets()[0][2] #m
                 r = elem.get_offsets()[0][3] #rad
-                elem.set_offset(x + dx *1e-6, y + dy*1e-6, z, r + dr*1e-6, 0 , 0)
+                elem.set_offsets(x + dx *1e-6, y + dy*1e-6, z, r + dr*1e-6, 0 , 0)
             else:
-                elem.set_offset(dx *1e-6, dy*1e-6, 0, dr*1e-6, 0 , 0)
+                elem.set_offsets(dx *1e-6, dy*1e-6, 0, dr*1e-6, 0 , 0)
 
 
     def apply_sum_knob(self, I):

@@ -19,10 +19,10 @@ class State:
         self.timestamp = datetime.now()
 
     def push(self, interface):
-        interface.push(self.correctors['names'], self.correctors['bdes']) #sets the desired current for one or more correctors
+        interface.push(self.correctors['names'], self.correctors['bdes'])
 
     def get_sequence(self):
-        return self.sequence #from rf track
+        return self.sequence
 
     def get_correctors(self, names=None):
         if names is not None:
@@ -69,7 +69,7 @@ class State:
         bpms = self.get_bpms(names)
         x = np.mean(bpms['x'],axis=0) # mm
         y = np.mean(bpms['y'],axis=0) # mm
-        stdx = np.std(bpms['x'],axis=0) # mm #standard deviation
+        stdx = np.std(bpms['x'],axis=0) # mm
         stdy = np.std(bpms['y'],axis=0) # mm
         tmit = np.mean(bpms['tmit'],axis=0)
         faulty = (x == 0.0) & (y == 0.0)
@@ -137,18 +137,18 @@ class State:
             filename = f"{basename}_{time_str}.pkl"
         correctors = {
             'names': self.correctors['names'],
-            'bdes': self.correctors['bdes'], #setpoint for a corrector
-            'bact': self.correctors['bact'] #readback for a corr
+            'bdes': self.correctors['bdes'],
+            'bact': self.correctors['bact']
         }
         bpms = {
             'names': self.bpms['names'],
             'x': self.bpms['x'],
             'y': self.bpms['y'],
-            'tmit': self.bpms['tmit'] #it's a local intensity at each bpm
+            'tmit': self.bpms['tmit']
         }
-        icts = { #tells us about intensity
+        icts = {
             'names': self.icts['names'],
-            'charge': self.icts['charge'] #intensity
+            'charge': self.icts['charge']
         }
         state = {
             "sequence": self.sequence,
@@ -164,4 +164,4 @@ class State:
         return filename
             
     def push(self, interface):
-        interface.push(self.correctors['names'], self.correctors['bdes']) #restores, because errors would add up i think
+        interface.push(self.correctors['names'], self.correctors['bdes'])
