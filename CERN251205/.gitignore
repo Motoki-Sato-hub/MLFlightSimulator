@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.idea/
+Data/
+Data/**
+!Data/.gitkeep
+*.npz
+*.npy
+*.pkl
+*.csv
+*.h5

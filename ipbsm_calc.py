@@ -9,23 +9,14 @@ import numpy as np
 PI = np.pi
 LAMBDA = 532e-9  # laser wavelength [m]
 
-# ============================================================
-#  RMS beam size (simple)
-# ============================================================
-def sigma_from_array(arr):
-    """Compute RMS beam size: sqrt(<y^2> - <y>^2)."""
-    if len(arr) < 2:
+def sigma_from_array(data):
+    if len(data) < 2:
         return -10000.0
-    mean = np.mean(arr)
-    return np.sqrt(np.mean(arr ** 2) - mean ** 2)
+    mean = np.mean(data)
+    return np.sqrt(np.mean(data ** 2) - mean ** 2)
 
 
-# ============================================================
-#  Core beam size (SAD sigmac)
-# ============================================================
-def core_sigma(arr, cut=2.0):
-
-    data = arr.copy()
+def sigma_clip(data, cut=2.0):
     sig = -100.0
     ncut = 1
 
@@ -51,16 +42,7 @@ def modulation_from_sigmay(sigy, degMode):
     pitch = pitch_from_angle(degMode)
     return np.abs(np.cos(np.deg2rad(degMode))) * np.exp(-2*(PI*sigy/pitch)**2)
 
-
-# ============================================================
-#  sigmayIPBSM : analytic inversion from modulation → sigma
-# ============================================================
 def sigmayIPBSM(modu, degMode):
-    """
-    SAD: sigmayIPBSM[modu,degMode]
-    pitch = λ / (2 sin(θ/2)), λ = 532 nm
-    output: sigma in [m]
-    """
     wavelength = 532e-9
     pitch = wavelength / (2.0 * np.sin(np.deg2rad(degMode / 2.0)))
 
@@ -69,15 +51,7 @@ def sigmayIPBSM(modu, degMode):
 
     return pitch / np.pi * np.sqrt(val)
 
-
-# ============================================================
-#  macropartIPBSMdirect : modulation calculation
-# ============================================================
 def macropartIPBSM_direct(data, degMode):
-    """
-    data: ndarray of y positions [m]
-    degMode: mode angle
-    """
     pitch = pitch_from_angle(degMode)
     phase = 2*PI*data/pitch
     Pterm = np.sum(np.cos(phase))
@@ -86,15 +60,8 @@ def macropartIPBSM_direct(data, degMode):
     modulation = abs(Cfac) * np.sqrt(Pterm**2 + Qterm**2) / len(data)
     return modulation
 
-
-# ============================================================
-#  FuncIPBSMbeamsize : main entry point
-# ============================================================
 def FuncIPBSMbeamsize(data):
-    """
-    data: ndarray of y positions [m]
-    return: (degMode, modulation, sigma_y [m])
-    """
+
     RMSbeamsize = np.std(data)  # [m]
     RMSbeamsize_nm = RMSbeamsize*1e9
 
@@ -115,10 +82,7 @@ def FuncIPBSMbeamsize(data):
     return degMode, ModIPBSM, SigIPBSM
 
 def BeamStatistics(track_bsizes):
-    """
-    track_bsizes: list or ndarray of beam sizes (float)
-    return: (mean, stdev, sdom)
-    """
+
     track_bsizes = np.array(track_bsizes)
     mean = np.mean(track_bsizes)
     stdev = np.std(track_bsizes, ddof=1)
