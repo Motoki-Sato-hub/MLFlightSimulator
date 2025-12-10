@@ -175,6 +175,13 @@ class MainWindow(QMainWindow):
     def __init__(self, interface, dir_name):
         super().__init__()
 
+        import traceback
+        print("SysID constructed")
+        traceback.print_stack()
+
+
+        I = self.interface = interface
+
         # SysID
         self.worker = None
         self.thread = None
@@ -485,36 +492,39 @@ class MainWindow(QMainWindow):
             return
         self.working_directory_input.setText(folder)
 
+if __name__ == "__main__":
+    ## MAIN
+    app = QApplication(sys.argv)
 
-## MAIN
-app = QApplication(sys.argv)
+    ## Select interface
+    #from SelectInterface import InterfaceSelectionDialog
+    import SelectInterface
+    #dialog = InterfaceSelectionDialog()
+    dialog = SelectInterface.choose_acc_and_interface()
+    # if dialog.exec():
+    #     print(f"Selected interface: {dialog.selected_interface_name}")
+    #     I = dialog.selected_interface
+    # else:
+    #     print("Selection cancelled.")
+    #     sys.exit(1)
+    I=dialog
+    project_name=I.get_name()
+    print(f"Selected interface: {project_name}")
 
-## Select interface
-#from SelectInterface import InterfaceSelectionDialog
-import SelectInterface
-#dialog = InterfaceSelectionDialog()
-dialog = SelectInterface.choose_acc_and_interface()
-if dialog is None:
-    print("Selection cancelled.")
-    sys.exit(1)
+    ## Prepare project space
+    #project_name = dialog.selected_interface_name
+    time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dir_name = f"~/flight-simulator-data/{project_name}_{time_str}"
+    dir_name = os.path.expanduser(os.path.expandvars(dir_name))
 
-# if dialog.exec():
-#     print(f"Selected interface: {dialog.selected_interface_name}")
-#     I = dialog.selected_interface
-# else:
-#     print("Selection cancelled.")
-#     sys.exit(1)
-I=dialog
-project_name=I.get_name()
-print(f"Selected interface: {project_name}")
+    ## Main Window
+    window = MainWindow(interface=I, dir_name=dir_name)
+    window.show()
+    sys.exit(app.exec())
 
-## Prepare project space
-#project_name = dialog.selected_interface_name
-time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-dir_name = f"~/flight-simulator-data/{project_name}_{time_str}"
-dir_name = os.path.expanduser(os.path.expandvars(dir_name))
+    if dialog is None:
+        print("Selection cancelled.")
+        sys.exit(1)
 
-## Main Window
-window = MainWindow(interface=I, dir_name=dir_name)
-window.show()
-sys.exit(app.exec())
+    
+

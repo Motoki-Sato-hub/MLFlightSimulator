@@ -570,24 +570,26 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
             data_dir=wakefield_dir
         self.handling('ComputeResponseMatrix_GUI.py', cwd=data_dir,args=[data_dir])
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    import SelectInterface
-    dialog = SelectInterface.choose_acc_and_interface()
-    if dialog is None:
-        print("Selection cancelled.")
-        sys.exit(1)
+    if __name__ == "__main__":
+        app = QApplication(sys.argv)
+        import SelectInterface
+        dialog = SelectInterface.choose_acc_and_interface()
+        if dialog is None:
+            print("Selection cancelled.")
+            sys.exit(1)
 
-    I=dialog
-    project_name=I.get_name()
-    print(f"Selected interface: {project_name}")
-    time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    dir_name = f"~/flight-simulator-data/BBA_{I.get_name()}_{time_str}_session_settings"
-    dir_name = os.path.expanduser(os.path.expandvars(dir_name))
-    w = MainWindow(interface=I, dir_name=dir_name)
+        I=dialog
+        project_name=I.get_name()
+        print(f"Selected interface: {project_name}")
+        time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dir_name = f"~/flight-simulator-data/BBA_{I.get_name()}_{time_str}_session_settings"
+        dir_name = os.path.expanduser(os.path.expandvars(dir_name))
+        w = MainWindow(interface=I, dir_name=dir_name)
 
-    if hasattr(I, "log_messages"):
-        I.log_messages(w.log)
+        if hasattr(I, "log_messages"):
+            I.log_messages(w.log)
 
-    w.show()
-    sys.exit(app.exec())
+
+        w.show()
+        sys.exit(app.exec())
+
