@@ -1,0 +1,53 @@
+# restore button
+# when you substract matrices, if a corrector is missing, you should ignore it
+# threshold doesnt work
+# maybe instead of golden orbit, correct from current orbit
+# error bars on the graphs - not a standard error, but something else instead
+# remember to put sato sans screenshots for the clic presentation
+# create 3 panels inside bba gui for the plots
+# i think we also need filtering cx and cy in the bba gui
+# make a proposed name in the session settings, just like in sysid when you want to save a file
+# weights bpm
+# display test orbits
+# DR cycle => 400 000 turns
+# Linac RFT Simulation
+# keep the load... button in the second tab of bba
+# put names of bpms in the sysid x axis to see which one is faulty
+# it would be nice if sysid do all the modes available
+# Rxy matrix
+# three lines on the plots with a black line if this is a sum in bba plots
+# remove chi squared
+# add red button to reset the reference orbit in the gui
+# get target dispersion should work like this: first, get the bpms and return target dispersion at those bpms,
+    it should basically parse a madx file, read the data and return target dispersion - in the damping ring?? or everywhere?
+# OTR => Interface
+# Emittance Measurements
+# should we add weights to every bpm in the gui?
+# display dispersion/wakefield, display response response matrices, including r1-r0, r2-r0
+# in computeresponsematrix_gui do the differences between two directories
+# target dispersion should not be hard coded, but there should be a method called get target dispersion
+# introduce beta function to the correction
+# add the option in sys id to choose mode orbit/dispersion/wakefield
+# when i extend bba window it makes the buttons etc look weird
+# when i close a console log it crashes
+# maybe add console log to the session settings
+# remove the choice of the atf2/clear and maybe see if theres a directory called ATF2 and Clear -
+    if not, display only choice of the inetrfaces
+# sysid after hitting 100% should close automatically
+# we can try to make the scripts executable via shell not inputting every time
+# readback set value until it reaches the exact value, it would be faster than sleeping 1 second while doing bba i think
+
+Done:
+
+# it would be good to have a log console
+# dont change the table with device names in sysid while extending thw window
+# improve the laser stability
+# make log console also print in the real terminal
+# append points after end of correction, because right now it's just clearing it
+# chi should have a norm (sum)
+# add progress bar to sysid 0-100
+# add session to the tab with response matrices
+# add response matrix in the gui right below correctors and bpms etc and remove their buttons
+
+
+
