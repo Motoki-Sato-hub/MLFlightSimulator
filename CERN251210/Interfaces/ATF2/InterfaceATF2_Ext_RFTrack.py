@@ -392,7 +392,8 @@ class InterfaceATF2_Ext_RFTrack():
         self._needs_tracking = True
 
     def apply_qmag_offsets(self, name, dx, dy, dr, add = True):
-        elems = self.lattice[name] + self.lattice[name + "MULT"] + self.lattice["M" + name]
+        elems = self.lattice[name] + self.lattice[name + "MULT"] 
+        bpm = self.lattice["M" + name]
 
         for elem in elems:
             if add == True:
@@ -403,6 +404,14 @@ class InterfaceATF2_Ext_RFTrack():
                 elem.set_offsets(x + dx *1e-3, y + dy*1e-3, z, r + dr*1e-3, 0 , 0)
             else:
                 elem.set_offsets(dx *1e-3, dy*1e-3, 0, dr*1e-3, 0 , 0)
+
+        if add == True:
+            x = bpm.get_offsets()[0][0] #mm
+            y = bpm.get_offsets()[0][1] #mm
+            z = bpm.get_offsets()[0][2] #mm
+            #bpm.set_offsets(x + dx *1e-3, y + dy*1e-3, z)
+        #else:
+            #bpm.set_offsets(dx *1e-3, dy*1e-3, 0)
 
 
     def apply_sum_knob(self, I):

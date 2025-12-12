@@ -9,7 +9,7 @@ from datetime import datetime
 
 from SysID_GUI import MainWindow as SysIDWindow
 from BBA_GUI import MainWindow as BBAWindow
-from SysGUI import MainWindow as SysGUISource
+from BeamTuning_GUI import MainWindow as BeamTuniggWindow
 
 
 class EmittingStream:
@@ -67,12 +67,12 @@ class UnifiedGUI(QMainWindow):
         self.tabs.addTab(self._wrap_qmainwindow(self.bba_window), "BBA")
 
         # ---------- SysGUI (裏で1回だけ生成) ----------
-        self.sysgui = SysGUISource(interface, dir_name)
-        self.sysgui.hide()
-        print("SysGUI tabs:", [self.sysgui.tabs.tabText(i) for i in range(self.sysgui.tabs.count())])
-        for i in range(self.sysgui.tabs.count()-1, -1, -1):
-            if self.sysgui.tabs.tabText(i) == "Response":
-                self.sysgui.tabs.removeTab(i)
+        self.beamtuniggui = BeamTuniggWindow(interface, dir_name)
+        self.beamtuniggui.hide()
+        print("SysGUI tabs:", [self.beamtuniggui.tabs.tabText(i) for i in range(self.beamtuniggui.tabs.count())])
+        for i in range(self.beamtuniggui.tabs.count()-1, -1, -1):
+            if self.beamtuniggui.tabs.tabText(i) == "Response":
+                self.beamtuniggui.tabs.removeTab(i)
 
 
         # ---------- 抜き出し ----------
@@ -95,7 +95,7 @@ class UnifiedGUI(QMainWindow):
         return container
 
     def _extract_and_add_tab(self, name: str):
-        src_tabs = self.sysgui.tabs
+        src_tabs = self.beamtuniggui.tabs
         for i in range(src_tabs.count()):
             if src_tabs.tabText(i) == name:
                 widget = src_tabs.widget(i)
@@ -128,5 +128,13 @@ if __name__ == "__main__":
     os.makedirs(dir_name, exist_ok=True)
 
     w = UnifiedGUI(interface, dir_name)
+
+    screen = app.primaryScreen()
+    geo = screen.geometry()
+
+    # 幅や高さが 0 の場合は RDP が正しい geometry を返せていない
+    if geo.width() == 0 or geo.height() == 0:
+        # 仮の安全な初期位置とサイズを与える
+        w.setGeometry(100, 100, 1600, 900)
     w.show()
     sys.exit(app.exec())
