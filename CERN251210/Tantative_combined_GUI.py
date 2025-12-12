@@ -128,13 +128,6 @@ if __name__ == "__main__":
     os.makedirs(dir_name, exist_ok=True)
 
     w = UnifiedGUI(interface, dir_name)
-
-    screen = app.primaryScreen()
-    geo = screen.geometry()
-
-    # 幅や高さが 0 の場合は RDP が正しい geometry を返せていない
-    if geo.width() == 0 or geo.height() == 0:
-        # 仮の安全な初期位置とサイズを与える
-        w.setGeometry(100, 100, 1600, 900)
+    
     w.show()
     sys.exit(app.exec())
