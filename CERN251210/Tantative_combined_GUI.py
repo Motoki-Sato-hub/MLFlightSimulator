@@ -108,8 +108,6 @@ class UnifiedGUI(QMainWindow):
 
 
 
-
-
 # --------- 単体起動用 ---------
 if __name__ == "__main__":
     # 既存の選択ダイアログがある前提

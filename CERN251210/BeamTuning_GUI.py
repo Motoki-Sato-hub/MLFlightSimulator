@@ -175,7 +175,7 @@ class Worker(QObject):
     ):
         super().__init__()
         self.interface = interface
-        self.S = state
+        self.S  = State(interface=self.interface)
         self.correctors = correctors
         self.bpms = bpms
         self.kicks = kicks
@@ -385,13 +385,14 @@ class MainWindow(QMainWindow):
 
         self.cwd = os.getcwd()
         self.interface = interface
-        bpms_list = interface.get_bpms_names()
-        correctors = interface.get_correctors()
+        self.S = State(interface=self.interface)
+        bpms_list = self.S.get_bpms_names(self.interface)
+        correctors = self.S.get_correctors()
         correctors_list = correctors["names"]
 
         if correctors_list is not None:
-            hcorrs = interface.get_hcorrectors_names()
-            vcorrs = interface.get_vcorrectors_names()
+            hcorrs = self.S.get_hcorrectors_names()
+            vcorrs = self.S.get_vcorrectors_names()
             hcorr_indexes = np.array(
                 [i for i, s in enumerate(correctors_list) if s in hcorrs], dtype=int
             )
@@ -877,7 +878,7 @@ class MainWindow(QMainWindow):
         ipbsm_group_layout.addWidget(linear_group)
 
         try:
-            linear_names = list(self.interface.get_linear_knob_names())
+            linear_names = list(self.S.get_linear_knob_names())
         except Exception:
             linear_names = ["A_x", "E_x", "A_y", "E_y", "Coup1", "Coup2"]
 
@@ -923,7 +924,7 @@ class MainWindow(QMainWindow):
         ipbsm_group_layout.addWidget(nonlinear_group)
 
         try:
-            nonlinear_names = list(self.interface.get_nonlinear_knob_names())
+            nonlinear_names = list(self.S.get_nonlinear_knob_names())
         except Exception:
             nonlinear_names = ["Y24", "Y46", "Y22", "Y26", "Y66", "Y44"]
 
@@ -1082,7 +1083,7 @@ class MainWindow(QMainWindow):
             with open(filename, "r") as f:
                 selected_correctors = [line.strip() for line in f]
         else:
-            selected_correctors = self.interface.get_correctors_names()
+            selected_correctors = self.S.get_correctors_names()
 
         self.correctors_list.clearSelection()
         for item in selected_correctors:
@@ -1119,7 +1120,7 @@ class MainWindow(QMainWindow):
             with open(filename, "r") as f:
                 selected_bpms = [line.strip() for line in f]
         else:
-            selected_bpms = self.interface.get_bpms_names()
+            selected_bpms = self.S.get_bpms_names(self.interface)
 
         self.bpms_list.clearSelection()
         for item in selected_bpms:
@@ -1154,13 +1155,13 @@ class MainWindow(QMainWindow):
         if not selected_correctors:
             for i in range(self.correctors_list.count()):
                 self.correctors_list.item(i).setSelected(True)
-            selected_correctors = self.interface.get_correctors_names()
+            selected_correctors = self.S.get_correctors_names()
 
         selected_bpms = [item.text() for item in self.bpms_list.selectedItems()]
         if not selected_bpms:
             for i in range(self.bpms_list.count()):
                 self.bpms_list.item(i).setSelected(True)
-            selected_bpms = self.interface.get_bpms_names()
+            selected_bpms = self.S.get_bpms_names(self.interface)
 
         S = State(interface=self.interface)
         S.save(basename="machine_status")
@@ -1302,12 +1303,13 @@ class MainWindow(QMainWindow):
     # Orbit monitor / manual OC
     # ---------------------------------------------------------
     def __measure_orbit_button_clicked(self):
-        bpms = self.interface.get_bpms()
+        self.S.pull(self.interface)
+        bpms = self.S.get_bpms()
         x = np.mean(bpms["x"], axis=0)
         y = np.mean(bpms["y"], axis=0)
 
         try:
-            s = np.asarray(self.interface.get_bpms_S(), dtype=float)
+            s = np.asarray(self.S.get_bpms_S(self.interface), dtype=float)
             if s.size != x.size:
                 raise ValueError("get_bpms_S size mismatch.")
         except Exception as e:
@@ -1336,7 +1338,7 @@ class MainWindow(QMainWindow):
         corr_name = self.manual_corr_combobox.currentText()
         corr_S = None
         try:
-            corr_S = float(self.interface.get_element_S(corr_name))
+            corr_S = float(self.S.get_element_S(self.interface, corr_name))
         except Exception as e:
             print(f"get_element_S not available for {corr_name}: {e}")
             corr_S = None
@@ -1413,7 +1415,7 @@ class MainWindow(QMainWindow):
             dk_h = sug.get("delta_k_h", [])
             for name, dk in zip(corr_h, dk_h):
                 print(f"Apply suggested H correction: {name} += {dk:+.4g}")
-                self.interface.vary_correctors(name, float(dk))
+                self.S.vary_correctors(self.interface, name, float(dk))
         except Exception as e:
             print(f"Failed to apply H-plane suggestion: {e}")
 
@@ -1423,7 +1425,7 @@ class MainWindow(QMainWindow):
             dk_v = sug.get("delta_k_v", [])
             for name, dk in zip(corr_v, dk_v):
                 print(f"Apply suggested V correction: {name} += {dk:+.4g}")
-                self.interface.vary_correctors(name, float(dk))
+                self.S.vary_correctors(self.interface, name, float(dk))
         except Exception as e:
             print(f"Failed to apply V-plane suggestion: {e}")
 
@@ -1434,14 +1436,14 @@ class MainWindow(QMainWindow):
         corr = self.manual_corr_combobox.currentText()
         print(f"Manual vary_correctors STEP: {corr} += {step}")
         try:
-            self.interface.vary_correctors(corr, step)
+            self.S.vary_correctors(self.interface,corr, step)
         except Exception as e:
             print(f"Error in vary_correctors: {e}")
             return
 
 
         try:
-            corr_data = self.interface.get_correctors()
+            corr_data = self.S.get_correctors()
             names = corr_data["names"]
             bdes = corr_data["bdes"]
             bact = corr_data["bact"]
@@ -1463,7 +1465,7 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------
     def __measure_dispersion_button_clicked(self):
         try:
-            result = self.interface.measure_dispersion()
+            result = self.S.measure_dispersion(self.interface)
         except Exception as e:
             print(f"Dispersion measurement failed: {e}")
             return
@@ -1480,7 +1482,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            s = np.asarray(self.interface.get_bpms_S(), dtype=float)
+            s = np.asarray(self.S.get_bpms_S(self.interface), dtype=float)
             if s.size != eta_x.size:
                 raise ValueError("get_bpms_S size mismatch.")
         except Exception as e:
@@ -1538,7 +1540,7 @@ class MainWindow(QMainWindow):
         print(f"GUI: apply_qmag_current(QF6X, dA={step})")
         try:
             #self.interface.apply_qf6x(step)
-            self.interface.apply_qmag_current("QF6X", step)
+            self.S.apply_qmag_current(self.interface, "QF6X", step)
         except Exception as e:
             print(f"apply_qmag_current is not available: {e}")
             return
@@ -1550,7 +1552,7 @@ class MainWindow(QMainWindow):
         step = self.sum_step_spinbox.value() * sign
         print(f"GUI: apply_sum_knob(k={step})")
         try:
-            self.interface.apply_sum_knob(step)
+            self.S.apply_sum_knob(self.interface, step)
         except Exception as e:
             print(f"apply_sum_knob is not available: {e}")
             return
@@ -1609,7 +1611,7 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------
     def __refresh_ipbsm_state(self):
         try:
-            state = self.interface.get_ipbsm_state()
+            state = self.S.get_ipbsm_state(self.interface)
         except Exception as e:
             print(f"get_ipbsm_state not available: {e}")
             if hasattr(self, "ipbsm_mod_label"):
@@ -1647,7 +1649,7 @@ class MainWindow(QMainWindow):
 
     def __update_qf1qd0_state(self):
         try:
-            state = self.interface.get_qf1ff_qd0ff_state()
+            state = self.S.get_qf1ff_qd0ff_state(self.interface)
         except Exception as e:
             print(f"get_qf1ff_qd0ff_state not available: {e}")
             self.qf1_state_label.setText("QF1FF: N/A")
@@ -1717,7 +1719,7 @@ class MainWindow(QMainWindow):
 
         print(f"Set linear knob {knob_name} = {new:+.3f}")
         try:
-            self.interface.set_linear_knob(knob_name, new)
+            self.S.set_linear_knob(self.interface, knob_name, new)
         except Exception as e:
             print(f"set_linear_knob not available: {e}")
 
@@ -1732,7 +1734,7 @@ class MainWindow(QMainWindow):
 
         print(f"Set nonlinear knob {knob_name} = {new:+.3f}")
         try:
-            self.interface.set_nonlinear_knob(knob_name, new)
+            self.S.set_nonlinear_knob(self.interface, knob_name, new)
         except Exception as e:
             print(f"set_nonlinear_knob not available: {e}")
 
@@ -1745,7 +1747,7 @@ if __name__ == "__main__":
 
     from SelectInterface import InterfaceSelectionDialog
 
-    dialog = InterfaceSelectionDialog()
+    dialog = InterfaceSelectionDialog("ATF2")
     if dialog.exec():
         print(f"Selected interface: {dialog.selected_interface_name}")
         I = dialog.selected_interface

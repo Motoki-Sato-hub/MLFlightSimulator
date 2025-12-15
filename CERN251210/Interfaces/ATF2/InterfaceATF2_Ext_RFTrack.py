@@ -1,8 +1,8 @@
 import RF_Track as rft
 import numpy as np
 import time
-import ipbsm_calc
-from knobs import KnobSystem
+from . import ipbsm_calc
+from .knobs import KnobSystem
 from LogConsole_BBA import LogConsole
 from datetime import datetime
 
@@ -12,7 +12,7 @@ class InterfaceATF2_Ext_RFTrack():
 
     def __init__(self, population=2e10, jitter=0.0, bpm_resolution=0.0, nsamples=1):
         self.log = print
-        self.lattice = rft.Lattice('Interfaces/ATF2/Ext_ATF2/ATF2_EXT_FF_v5.2.twiss')
+        self.lattice = rft.Lattice('Interfaces/ATF2//Ext_ATF2/ATF2_EXT_FF_v5.2.twiss')
         self.lattice.set_bpm_resolution(bpm_resolution)
         for s in self.lattice['*OTR*']:
             screen = rft.Screen()
@@ -346,13 +346,6 @@ class InterfaceATF2_Ext_RFTrack():
         self.__track_bunch()
 
     def measure_dispersion(self):
-        """
-        RF-Track 上で dispersion を測定。
-        - Nominal energy
-        - Reduced energy (Pref = 0.98 * Pref)
-        の 2 つのビームを流して、delta = -0.02 と仮定して ηx, ηy を返す。
-        戻り値: {"eta_x": np.ndarray, "eta_y": np.ndarray}
-        """
         print("Measuring dispersion (RF-Track)...")
 
         # Nominal energy
@@ -393,7 +386,9 @@ class InterfaceATF2_Ext_RFTrack():
 
     def apply_qmag_offsets(self, name, dx, dy, dr, add = True):
         elems = self.lattice[name] + self.lattice[name + "MULT"] 
-        bpm = self.lattice["M" + name]
+        bpms = self.lattice["M" + name]
+        if not isinstance(bpms, (list,tuple)):
+            bpms = [bpms]
 
         for elem in elems:
             if add == True:
@@ -401,17 +396,18 @@ class InterfaceATF2_Ext_RFTrack():
                 y = elem.get_offsets()[0][1] #mm
                 z = elem.get_offsets()[0][2] #mm
                 r = elem.get_offsets()[0][3] #rad
-                elem.set_offsets(x + dx *1e-3, y + dy*1e-3, z, r + dr*1e-3, 0 , 0)
+                elem.set_offsets(x + dx *1e-6, y + dy*1e-6, z, r + dr*1e-3, 0 , 0)
             else:
-                elem.set_offsets(dx *1e-3, dy*1e-3, 0, dr*1e-3, 0 , 0)
+                elem.set_offsets(dx *1e-6, dy*1e-6, 0, dr*1e-3, 0 , 0)
 
-        if add == True:
-            x = bpm.get_offsets()[0][0] #mm
-            y = bpm.get_offsets()[0][1] #mm
-            z = bpm.get_offsets()[0][2] #mm
-            #bpm.set_offsets(x + dx *1e-3, y + dy*1e-3, z)
-        #else:
-            #bpm.set_offsets(dx *1e-3, dy*1e-3, 0)
+        for bpm in bpms:
+            if add == True:
+                x = bpm.get_offsets()[0][0] #mm
+                y = bpm.get_offsets()[0][1] #mm
+                z = bpm.get_offsets()[0][2] #mm
+                bpm.set_offsets(x + dx *1e-6, y + dy*1e-6, z)
+            else:
+                bpm.set_offsets(dx *1e-6, dy*1e-6, 0)
 
 
     def apply_sum_knob(self, I):

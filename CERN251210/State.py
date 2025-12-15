@@ -54,6 +54,9 @@ class State:
         else:
             bpms = self.bpms
         return bpms         
+    
+    def get_bpms_names(self, interface):
+        return interface.get_bpms_names()
 
     def get_icts(self, names=None):
         icts = self.icts
@@ -78,7 +81,7 @@ class State:
         orbit = { "names": names, "x": x, "y": y, "stdx": stdx, "stdy": stdy, "tmit": tmit, "faulty": faulty, "nbpms": len(names) }
         return orbit
 
-    """"
+
     def change_energy(self, interface, *args):
         interface.change_energy(*args)
         pass
@@ -94,14 +97,87 @@ class State:
     def reset_intensity(self, interface, *args):
         interface.reset_intensity(*args)
         pass
-
+    """""
     def push(self, interface, names, corr_vals):
         interface.push(names, corr_vals)
-    
+    """""
+
     def vary_correctors(self, interface, names, corr_vals):
         interface.vary_correctors(names, corr_vals)
+
+    def measure_orbit(self, interface, bpm_names=None):
+        self.pull(interface)
+        orbit = self.get_orbit(bpm_names)
+        try:
+            s = np.asarray(interface.get_bpms_S(), dtype=float)
+        except Exception:
+            s = np.arange(len(orbit["x"]), dtype=float)
+
+        self.orbit = {
+            "s": s,
+            **orbit,
+            "timestamp": self.timestamp,
+        }
+        return self.orbit
     
-    """
+    def get_element_S(self, interface, name):
+        return interface.get_element_S(name)
+    
+    def get_bpms_S(self, interface):
+        return interface.get_bpms_S()
+    
+    def measure_dispersion(self, interface, bpm_names=None):
+        result = interface.measure_dispersion()
+        if result is None:
+            return None
+
+        try:
+            s = np.asarray(interface.get_bpms_S(), dtype=float)
+        except Exception:
+            s = np.arange(len(result["eta_x"]), dtype=float)
+
+        self.dispersion = {
+            "s": s,
+            "eta_x": np.asarray(result["eta_x"]),
+            "eta_y": np.asarray(result["eta_y"]),
+            "timestamp": self.timestamp,
+        }
+        return self.dispersion
+    
+    def init_knobs(self, interface):
+        self.linear_knobs = {k: 0.0 for k in interface.get_linear_knob_names()}
+        self.nonlinear_knobs = {k: 0.0 for k in interface.get_nonlinear_knob_names()}
+
+    def set_linear_knob(self, interface, name, value):
+        interface.set_linear_knob(name, value)
+        self.linear_knobs[name] = value
+        self.pull(interface)
+
+    def set_nonlinear_knob(self, interface, name, value):
+        interface.set_nonlinear_knob(name, value)
+        self.nonlinear_knobs[name] = value
+        self.pull(interface)
+
+    def apply_qmag_current(self, interface, name, dA):
+        interface.apply_qmag_current(name, dA)
+        self.pull(interface)
+
+    def apply_sum_knob(self, interface, dA):
+        interface.apply_sum_knob(dA)
+        self.pull(interface)
+
+    def measure_ipbsm(self, interface):
+        state = interface.get_ipbsm_state()
+        self.ipbsm = {
+            **state,
+            "timestamp": self.timestamp,
+        }
+        return self.ipbsm
+    
+    def get_ipmsm_state(self, interface):
+        return interface.get_ipbsm_state()
+
+
 
     def load(self, filename):
         from glob import glob

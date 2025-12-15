@@ -121,7 +121,7 @@ class InterfaceSelectionDialog(QDialog):
 
                     self.selected_interface.align_everything()
                     #self.selected_interface.misalign_quadrupoles()
-                    self.selected_interface.misalign_bpms()
+                    #self.selected_interface.misalign_bpms()
 
 
         elif self.selected_acc == 'CLEAR':

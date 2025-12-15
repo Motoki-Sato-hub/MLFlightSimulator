@@ -118,6 +118,25 @@ class InterfaceATF2_Ext:
 
     def get_elements_position(self,names):
         return [index for index, string in enumerate(self.sequence) if string in names]
+    
+    def get_bpms_S(self):
+        raise NotImplementedError("get_bpms_S not available in ATF2_Ext")
+
+    def get_element_S(self, name):
+        raise NotImplementedError("get_element_S not available in ATF2_Ext")
+
+    def measure_dispersion(self):
+        raise NotImplementedError("Dispersion measurement not available in ATF2_Ext")
+
+    def get_ipbsm_state(self):
+        raise NotImplementedError("IPBSM not available in ATF2_Ext")
+
+    def get_linear_knob_names(self):
+        return []
+
+    def get_nonlinear_knob_names(self):
+        return []
+
 
     def get_target_dispersion(self, names=None):
         with open('Interfaces/ATF2/Ext_ATF2/ATF2_EXT_FF_v5.2.twiss', "r") as file:
