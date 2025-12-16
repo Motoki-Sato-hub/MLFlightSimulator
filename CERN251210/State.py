@@ -50,6 +50,7 @@ class State:
                 "x": np.array(self.bpms['x'])[:,bpm_indexes],
                 "y": np.array(self.bpms['y'])[:,bpm_indexes],
                 "tmit": np.array(self.bpms['tmit'])[:,bpm_indexes],
+                "S": np.array(self.bpms['S'])[bpm_indexes]
             }
         else:
             bpms = self.bpms

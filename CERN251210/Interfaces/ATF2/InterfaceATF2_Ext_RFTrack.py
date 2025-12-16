@@ -263,21 +263,33 @@ class InterfaceATF2_Ext_RFTrack():
         return correctors
     
     def get_bpms(self):
-        #print('Reading bpms...')
-        self.log('Reading bpms...')
+        self.log("Reading bpms...")
         self.__ensure_tracked()
-        x = np.zeros((self.nsamples, len(self.bpms)))
-        y = np.zeros(x.shape)
-        tmit = np.zeros(x.shape)
+
+        nbpm = len(self.bpms)
+
+        x = np.zeros((self.nsamples, nbpm))
+        y = np.zeros_like(x)
+        tmit = np.zeros_like(x)
+
+        #s1 = np.array([self.lattice[bpm].get_S() for bpm in self.bpms])
+        s = np.array([self.lattice[bpm].get_S() for bpm in self.bpms], dtype=float)
+
         for i in range(self.nsamples):
-            for j,bpm in enumerate(self.bpms):
+            for j, bpm in enumerate(self.bpms):
                 b = self.lattice[bpm]
                 reading = b.get_reading()
-                x[i,j] = reading[0]
-                y[i,j] = reading[1]
-                tmit[i,j] = b.get_total_charge()
-        bpms = { "names": self.bpms, "x": x, "y": y, "tmit": tmit }
-        return bpms
+                x[i, j] = reading[0]
+                y[i, j] = reading[1]
+                tmit[i, j] = b.get_total_charge()
+
+        return {
+            "names": self.bpms,
+            "x": x,
+            "y": y,
+            "tmit": tmit,
+            "S": s,
+        }
     
     def get_bpms_S(self):
         S = []

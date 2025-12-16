@@ -1334,7 +1334,7 @@ class MainWindow(QMainWindow):
         y = np.mean(bpms["y"], axis=0)
 
         try:
-            s = np.asarray(self.S.get_element_S(self.interface, bpm_list), dtype=float)
+            s = np.asarray(bpms["S"], dtype=float)
             if s.size != x.size:
                 raise ValueError("get_bpms_S size mismatch.")
         except Exception as e:
@@ -1492,13 +1492,13 @@ class MainWindow(QMainWindow):
     def __measure_dispersion_button_clicked(self):
         try:
             print("Measuring dispersion...")
-            bpms = self.S.get_bpms()["names"]
+            bpms = self.S.get_bpms()
 
             # --- Nominal energy ---
             self.interface.reset_energy()
             self.S.pull(self.interface)
 
-            O0 = self.S.get_orbit(bpms)
+            O0 = self.S.get_orbit(bpms['names'])
             O0x = O0['x'].reshape(-1, 1)
             O0y = O0['y'].reshape(-1, 1)
 
@@ -1507,7 +1507,7 @@ class MainWindow(QMainWindow):
             print("dP/P =", dP_P)
             self.S.pull(self.interface)
 
-            O1 = self.S.get_orbit(bpms)
+            O1 = self.S.get_orbit(bpms['names'])
             O1x = O1['x'].reshape(-1, 1)
             O1y = O1['y'].reshape(-1, 1)
 
@@ -1538,7 +1538,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            s = np.asarray(self.S.get_element_S(self.interface, bpms), dtype=float)
+            s = np.asarray(bpms["S"], dtype=float)
             if s.size != eta_x.size:
                 raise ValueError("get_bpms_S size mismatch.")
         except Exception as e:

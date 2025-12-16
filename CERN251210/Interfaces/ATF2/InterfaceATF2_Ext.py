@@ -71,7 +71,7 @@ class InterfaceATF2_Ext:
         ]
         self.laser_intensity = PV('RFGun:LasetIntensity1:Read').get()
 
-    def change_energy(self, delta_freq=None, **kwargs):
+    def change_energy(self, delta_freq=None):
         PV('RAMP:CONTROL_ON_SW').put(1)
         time.sleep(2)
         ### delta_freq MUST MATCH :MI2: to EPICS --> means "MINUS2"
@@ -221,25 +221,55 @@ class InterfaceATF2_Ext:
         return correctors
     
     def get_bpms(self):
-        print('Reading bpms...')
-        p = PV('ATF2:monitors')
-        x, y, tmit = [], [], []
+        print("Reading ATF2 BPMs...")
+
+        p = PV("ATF2:monitors")
+
+        x_list, y_list, tmit_list = [], [], []
+
         for sample in range(self.nsamples):
-            print(f'Sample = {sample}')
-            a = p.get().reshape((-1, 20))
-            status = a[self.bpm_indexes, 0]
-            # Set elements that are not equal to 1 to zero
-            status[status != 1] = 0
-            x.append(a[self.bpm_indexes, 1])
-            y.append(a[self.bpm_indexes, 2])
-            tmit.append(status * a[self.bpm_indexes, 3])
+            raw = np.asarray(p.get(), dtype=float)
+
+            # --- drop header (1000) ---
+            raw = raw[1:]
+
+            # --- reshape: 1 BPM = 10 values ---
+            a = raw.reshape((-1, 10))
+
+            # --- select BPM rows ---
+            bpm = a[self.bpm_indexes]
+
+            status = bpm[:, 0]
+            x = bpm[:, 1]
+            y = bpm[:, 2]
+            tmit = bpm[:, 3]
+            s = bpm[:, 4]   # ← 今回は返さないが確認用に重要
+
+            valid = (status == 1)
+
+            x = np.where(valid, x, np.nan)
+            y = np.where(valid, y, np.nan)
+            tmit = np.where(valid, tmit, 0.0)
+
+            x_list.append(x)
+            y_list.append(y)
+            tmit_list.append(tmit)
+
             time.sleep(1)
-        names = [ self.bpms ] if type(self.bpms) == str else self.bpms
-        x = np.vstack(x) / 1e3 # mm
-        y = np.vstack(y) / 1e3 # mm
-        tmit = np.vstack(tmit)
-        bpms = { "names": names, "x": x, "y": y, "tmit": tmit }
-        return bpms
+
+        names = self.bpms if isinstance(self.bpms, list) else [self.bpms]
+
+        x = np.vstack(x_list) / 1e3   # mm
+        y = np.vstack(y_list) / 1e3   # mm
+        tmit = np.vstack(tmit_list)
+
+        return {
+            "names": names,
+            "x": x,
+            "y": y,
+            "tmit": tmit,
+            "S": s
+        }
 
     def push(self, names, corr_vals):
         if type(corr_vals) == float:
