@@ -285,8 +285,36 @@ class InterfaceATF2_Ext_RFTrack():
             S.append(self.lattice[name].get_S())
         return np.array(S, dtype=float)
 
-    def get_element_S(self, name: str) -> float:
-        return float(self.lattice[name].get_S())
+    def get_element_S(self, names=None):
+        with open('Interfaces/ATF2/Ext_ATF2/ATF2_EXT_FF_v5.2.twiss', "r") as file:
+            lines = [line.strip() for line in file if line.strip()]
+
+        star_symbol = next(i for i, line in enumerate(lines) if line.startswith("*"))
+        dollar_sign = next(i for i, line in enumerate(lines) if line.startswith("$") and i > star_symbol)
+
+        columns = lines[star_symbol].lstrip("*").split()
+
+        NAME_col = columns.index("NAME")
+        S_col = columns.index("S")
+
+        # --- names 側を正規化 ---
+        if names is not None:
+            names_norm = {n.strip('"') for n in names}
+        else:
+            names_norm = None
+
+        s_list = []
+
+        for line in lines[dollar_sign + 1:]:
+            data = line.split()
+
+            # --- Twiss 側 NAME を正規化 ---
+            name = data[NAME_col].strip('"')
+
+            if names_norm is None or name in names_norm:
+                s_list.append(float(data[S_col]))
+
+        return np.asarray(s_list, dtype=float)
 
 
     def get_screens(self):

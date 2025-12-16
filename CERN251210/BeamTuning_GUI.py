@@ -1329,11 +1329,12 @@ class MainWindow(QMainWindow):
     def __measure_orbit_button_clicked(self):
         self.S.pull(self.interface)
         bpms = self.S.get_bpms()
+        bpm_list = self.S.get_bpms()['names']
         x = np.mean(bpms["x"], axis=0)
         y = np.mean(bpms["y"], axis=0)
 
         try:
-            s = np.asarray(self.S.get_bpms_S(self.interface), dtype=float)
+            s = np.asarray(self.S.get_element_S(self.interface, bpm_list), dtype=float)
             if s.size != x.size:
                 raise ValueError("get_bpms_S size mismatch.")
         except Exception as e:
@@ -1537,7 +1538,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            s = np.asarray(self.S.get_bpms_S(self.interface), dtype=float)
+            s = np.asarray(self.S.get_element_S(self.interface, bpms), dtype=float)
             if s.size != eta_x.size:
                 raise ValueError("get_bpms_S size mismatch.")
         except Exception as e:

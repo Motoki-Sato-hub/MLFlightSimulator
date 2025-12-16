@@ -51,8 +51,8 @@ class Worker(QObject):
         self.interface = interface
         self.S = state
         self.correctors = correctors
-        self.hcorrs = I.get_hcorrectors_names()
-        self.vcorrs = I.get_vcorrectors_names()
+        self.hcorrs = self.interface.get_hcorrectors_names()
+        self.vcorrs = self.interface.get_vcorrectors_names()
         self.bpms = bpms
         self.hkicks = hkicks
         self.vkicks = vkicks
@@ -113,7 +113,7 @@ class Worker(QObject):
                         curr_p = clamp(curr_p, self.max_curr_h)
                     else:
                         curr_p = clamp(curr_p, self.max_curr_v)
-                    I.push(corrector, curr_p)
+                    self.interface.push(corrector, curr_p)
                     corr_changed = True
 
                     if not self.running:
@@ -133,7 +133,7 @@ class Worker(QObject):
                         curr_m = clamp(curr_m, self.max_curr_h)
                     else:
                         curr_m = clamp(curr_m, self.max_curr_v)
-                    I.push(corrector, curr_m)
+                    self.interface.push(corrector, curr_m)
                     corr_changed = True
 
                     if not self.running:
@@ -146,7 +146,7 @@ class Worker(QObject):
                 Om = S.get_orbit(self.bpms)
 
                 if corr_changed:
-                    I.push(corrector, corr['bdes'])
+                    self.interface.push(corrector, corr['bdes'])
 
                 Diff_x = (Op['x'] - Om['x']) / 2.0
                 Diff_y = (Op['y'] - Om['y']) / 2.0
@@ -201,12 +201,12 @@ class MainWindow(QMainWindow):
         self.cwd = os.getcwd()
         self.interface = interface
         bpms_list = interface.get_bpms()['names']
-        correctors = I.get_correctors()
+        correctors = self.interface.get_correctors()
         correctors_list = correctors['names']
 
         if correctors_list is not None:
-            hcorrs = I.get_hcorrectors_names()
-            vcorrs = I.get_vcorrectors_names()
+            hcorrs = self.interface.get_hcorrectors_names()
+            vcorrs = self.interface.get_vcorrectors_names()
             hcorr_indexes = np.array([index for index, string in enumerate(correctors_list) if string in hcorrs])
             vcorr_indexes = np.array([index for index, string in enumerate(correctors_list) if string in vcorrs])
             def clean_array(a):
@@ -528,34 +528,35 @@ class MainWindow(QMainWindow):
 
 
 ## MAIN
-app = QApplication(sys.argv)
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
 
-## Select interface
-#from SelectInterface import InterfaceSelectionDialog
-import SelectInterface
-#dialog = InterfaceSelectionDialog()
-dialog = SelectInterface.choose_acc_and_interface()
-if dialog is None:
-    print("Selection cancelled.")
-    sys.exit(1)
+    ## Select interface
+    #from SelectInterface import InterfaceSelectionDialog
+    import SelectInterface
+    #dialog = InterfaceSelectionDialog()
+    dialog = SelectInterface.choose_acc_and_interface()
+    if dialog is None:
+        print("Selection cancelled.")
+        sys.exit(1)
 
-# if dialog.exec():
-#     print(f"Selected interface: {dialog.selected_interface_name}")
-#     I = dialog.selected_interface
-# else:
-#     print("Selection cancelled.")
-#     sys.exit(1)
-I=dialog
-project_name=I.get_name()
-print(f"Selected interface: {project_name}")
+    # if dialog.exec():
+    #     print(f"Selected interface: {dialog.selected_interface_name}")
+    #     I = dialog.selected_interface
+    # else:
+    #     print("Selection cancelled.")
+    #     sys.exit(1)
+    I=dialog
+    project_name = I.get_name()
+    print(f"Selected interface: {project_name}")
 
-## Prepare project space
-#project_name = dialog.selected_interface_name
-time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-dir_name = f"~/flight-simulator-data/{project_name}_{time_str}"
-dir_name = os.path.expanduser(os.path.expandvars(dir_name))
+    ## Prepare project space
+    #project_name = dialog.selected_interface_name
+    time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dir_name = f"~/flight-simulator-data/{project_name}_{time_str}"
+    dir_name = os.path.expanduser(os.path.expandvars(dir_name))
 
-## Main Window
-window = MainWindow(interface=I, dir_name=dir_name)
-window.show()
-sys.exit(app.exec())
+    ## Main Window
+    window = MainWindow(interface=I, dir_name=dir_name)
+    window.show()
+    sys.exit(app.exec())
