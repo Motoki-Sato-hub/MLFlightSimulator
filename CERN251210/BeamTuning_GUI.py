@@ -18,7 +18,7 @@ from PyQt6.QtCore import Qt, QThread, QTimer, QObject, pyqtSignal
 import matplotlib
 matplotlib.use("QtAgg")
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
@@ -438,176 +438,180 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(main_widget)
 
         # --------------------------------------
-        # Tab Widget （Response / Orbit / Dispersion / Misalignment）
+        # Tab Widget （ Orbit / Dispersion / Misalignment）
         # --------------------------------------
         self.tabs = QTabWidget()
         main_layout.addWidget(self.tabs, 1)
+        
+        # === Response tab DISABLED ===
+        ENABLE_RESPONSE_TAB = False
 
-        response_tab = QWidget()
-        response_main_layout = QHBoxLayout(response_tab)
-        self.tabs.addTab(response_tab, "Response")
+        if ENABLE_RESPONSE_TAB:
+            response_tab = QWidget()
+            response_main_layout = QHBoxLayout(response_tab)
+            self.tabs.addTab(response_tab, "Response")
 
-        resp_left = QVBoxLayout()
-        response_main_layout.addLayout(resp_left, 1)
+            resp_left = QVBoxLayout()
+            response_main_layout.addLayout(resp_left, 1)
 
-        correctors_layout = QHBoxLayout()
-        resp_left.addLayout(correctors_layout)
+            correctors_layout = QHBoxLayout()
+            resp_left.addLayout(correctors_layout)
 
-        correctors_label = QLabel("Correctors:")
-        correctors_layout.addWidget(correctors_label)
+            correctors_label = QLabel("Correctors:")
+            correctors_layout.addWidget(correctors_label)
 
-        self.correctors_list = QListWidget()
-        self.correctors_list.setSelectionMode(
-            QListWidget.SelectionMode.ExtendedSelection
-        )
-        self.correctors_list.insertItems(0, correctors_list)
-        resp_left.addWidget(self.correctors_list)
+            self.correctors_list = QListWidget()
+            self.correctors_list.setSelectionMode(
+                QListWidget.SelectionMode.ExtendedSelection
+            )
+            self.correctors_list.insertItems(0, correctors_list)
+            resp_left.addWidget(self.correctors_list)
 
-        button_layout = QHBoxLayout()
-        resp_left.addLayout(button_layout)
+            button_layout = QHBoxLayout()
+            resp_left.addLayout(button_layout)
 
-        self.save_correctors_button = QPushButton("Save As..")
-        self.save_correctors_button.clicked.connect(
-            self.__save_correctors_button_clicked
-        )
-        button_layout.addWidget(self.save_correctors_button)
+            self.save_correctors_button = QPushButton("Save As..")
+            self.save_correctors_button.clicked.connect(
+                self.__save_correctors_button_clicked
+            )
+            button_layout.addWidget(self.save_correctors_button)
 
-        self.load_correctors_button = QPushButton("Load..")
-        self.load_correctors_button.clicked.connect(
-            self.__load_correctors_button_clicked
-        )
-        button_layout.addWidget(self.load_correctors_button)
+            self.load_correctors_button = QPushButton("Load..")
+            self.load_correctors_button.clicked.connect(
+                self.__load_correctors_button_clicked
+            )
+            button_layout.addWidget(self.load_correctors_button)
 
-        self.clear_correctors_button = QPushButton("Clear")
-        self.clear_correctors_button.clicked.connect(
-            self.__clear_correctors_button_clicked
-        )
-        button_layout.addWidget(self.clear_correctors_button)
+            self.clear_correctors_button = QPushButton("Clear")
+            self.clear_correctors_button.clicked.connect(
+                self.__clear_correctors_button_clicked
+            )
+            button_layout.addWidget(self.clear_correctors_button)
 
-        bpms_layout = QHBoxLayout()
-        resp_left.addLayout(bpms_layout)
+            bpms_layout = QHBoxLayout()
+            resp_left.addLayout(bpms_layout)
 
-        bpms_label = QLabel("BPMs:")
-        bpms_layout.addWidget(bpms_label)
+            bpms_label = QLabel("BPMs:")
+            bpms_layout.addWidget(bpms_label)
 
-        self.bpms_list = QListWidget()
-        self.bpms_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.bpms_list.insertItems(0, bpms_list)
-        resp_left.addWidget(self.bpms_list)
+            self.bpms_list = QListWidget()
+            self.bpms_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+            self.bpms_list.insertItems(0, bpms_list)
+            resp_left.addWidget(self.bpms_list)
 
-        button_layout2 = QHBoxLayout()
-        resp_left.addLayout(button_layout2)
+            button_layout2 = QHBoxLayout()
+            resp_left.addLayout(button_layout2)
 
-        self.save_bpms_button = QPushButton("Save As..")
-        self.save_bpms_button.clicked.connect(self.__save_bpms_button_clicked)
-        button_layout2.addWidget(self.save_bpms_button)
+            self.save_bpms_button = QPushButton("Save As..")
+            self.save_bpms_button.clicked.connect(self.__save_bpms_button_clicked)
+            button_layout2.addWidget(self.save_bpms_button)
 
-        self.load_bpms_button = QPushButton("Load..")
-        self.load_bpms_button.clicked.connect(self.__load_bpms_button_clicked)
-        button_layout2.addWidget(self.load_bpms_button)
+            self.load_bpms_button = QPushButton("Load..")
+            self.load_bpms_button.clicked.connect(self.__load_bpms_button_clicked)
+            button_layout2.addWidget(self.load_bpms_button)
 
-        self.clear_bpms_button = QPushButton("Clear")
-        self.clear_bpms_button.clicked.connect(self.__clear_bpms_button_clicked)
-        button_layout2.addWidget(self.clear_bpms_button)
+            self.clear_bpms_button = QPushButton("Clear")
+            self.clear_bpms_button.clicked.connect(self.__clear_bpms_button_clicked)
+            button_layout2.addWidget(self.clear_bpms_button)
 
-        resp_right = QVBoxLayout()
-        response_main_layout.addLayout(resp_right, 2)
+            resp_right = QVBoxLayout()
+            response_main_layout.addLayout(resp_right, 2)
 
-        self.info_label = QLabel("Data Storage:")
-        self.info_label.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
-        resp_right.addWidget(self.info_label)
+            self.info_label = QLabel("Data Storage:")
+            self.info_label.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+            )
+            resp_right.addWidget(self.info_label)
 
-        self.working_directory_input = QLineEdit("Working directory:")
-        self.working_directory_input.setText(dir_name)
-        resp_right.addWidget(self.working_directory_input)
+            self.working_directory_input = QLineEdit("Working directory:")
+            self.working_directory_input.setText(dir_name)
+            resp_right.addWidget(self.working_directory_input)
 
-        self.options_label = QLabel("SysID Options")
-        self.options_label.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
-        resp_right.addWidget(self.options_label)
+            self.options_label = QLabel("SysID Options")
+            self.options_label.setSizePolicy(
+                QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+            )
+            resp_right.addWidget(self.options_label)
 
-        options_layout = QVBoxLayout()
-        resp_right.addLayout(options_layout)
+            options_layout = QVBoxLayout()
+            resp_right.addLayout(options_layout)
 
-        cycle_mode_layout = QHBoxLayout()
-        options_layout.addLayout(cycle_mode_layout)
+            cycle_mode_layout = QHBoxLayout()
+            options_layout.addLayout(cycle_mode_layout)
 
-        self.cycle_mode_label = QLabel("Cycle mode")
-        cycle_mode_layout.addWidget(self.cycle_mode_label)
+            self.cycle_mode_label = QLabel("Cycle mode")
+            cycle_mode_layout.addWidget(self.cycle_mode_label)
 
-        self.cycle_mode_combobox = QComboBox()
-        self.cycle_mode_combobox.addItems(["Repeat all"])
-        cycle_mode_layout.addWidget(self.cycle_mode_combobox)
+            self.cycle_mode_combobox = QComboBox()
+            self.cycle_mode_combobox.addItems(["Repeat all"])
+            cycle_mode_layout.addWidget(self.cycle_mode_combobox)
 
-        current_layout = QHBoxLayout()
-        options_layout.addLayout(current_layout)
+            current_layout = QHBoxLayout()
+            options_layout.addLayout(current_layout)
 
-        self.current_label = QLabel("Max current (A)")
-        current_layout.addWidget(self.current_label)
-        current_layout.addStretch()
+            self.current_label = QLabel("Max current (A)")
+            current_layout.addWidget(self.current_label)
+            current_layout.addStretch()
 
-        self.horizontal_current_label = QLabel("H:")
-        current_layout.addWidget(self.horizontal_current_label)
+            self.horizontal_current_label = QLabel("H:")
+            current_layout.addWidget(self.horizontal_current_label)
 
-        self.max_horizontal_current_spinbox = QDoubleSpinBox()
-        self.max_horizontal_current_spinbox.setValue(max_curr_h)
-        self.max_horizontal_current_spinbox.setSingleStep(0.01)
-        current_layout.addWidget(self.max_horizontal_current_spinbox)
+            self.max_horizontal_current_spinbox = QDoubleSpinBox()
+            self.max_horizontal_current_spinbox.setValue(max_curr_h)
+            self.max_horizontal_current_spinbox.setSingleStep(0.01)
+            current_layout.addWidget(self.max_horizontal_current_spinbox)
 
-        self.vertical_current_label = QLabel(" V:")
-        current_layout.addWidget(self.vertical_current_label)
+            self.vertical_current_label = QLabel(" V:")
+            current_layout.addWidget(self.vertical_current_label)
 
-        self.max_vertical_current_spinbox = QDoubleSpinBox()
-        self.max_vertical_current_spinbox.setValue(max_curr_v)
-        self.max_vertical_current_spinbox.setSingleStep(0.01)
-        current_layout.addWidget(self.max_vertical_current_spinbox)
+            self.max_vertical_current_spinbox = QDoubleSpinBox()
+            self.max_vertical_current_spinbox.setValue(max_curr_v)
+            self.max_vertical_current_spinbox.setSingleStep(0.01)
+            current_layout.addWidget(self.max_vertical_current_spinbox)
 
-        excursion_layout = QHBoxLayout()
-        options_layout.addLayout(excursion_layout)
+            excursion_layout = QHBoxLayout()
+            options_layout.addLayout(excursion_layout)
 
-        self.excursion_label = QLabel("Orbit excursion (mm)")
-        excursion_layout.addWidget(self.excursion_label)
-        excursion_layout.addStretch()
+            self.excursion_label = QLabel("Orbit excursion (mm)")
+            excursion_layout.addWidget(self.excursion_label)
+            excursion_layout.addStretch()
 
-        self.horizontal_excursion_label = QLabel("H:")
-        excursion_layout.addWidget(self.horizontal_excursion_label)
+            self.horizontal_excursion_label = QLabel("H:")
+            excursion_layout.addWidget(self.horizontal_excursion_label)
 
-        self.horizontal_excursion_spinbox = QDoubleSpinBox()
-        self.horizontal_excursion_spinbox.setValue(0.5)
-        self.horizontal_excursion_spinbox.setSingleStep(0.1)
-        excursion_layout.addWidget(self.horizontal_excursion_spinbox)
+            self.horizontal_excursion_spinbox = QDoubleSpinBox()
+            self.horizontal_excursion_spinbox.setValue(0.5)
+            self.horizontal_excursion_spinbox.setSingleStep(0.1)
+            excursion_layout.addWidget(self.horizontal_excursion_spinbox)
 
-        self.vertical_excursion_label = QLabel("V:")
-        excursion_layout.addWidget(self.vertical_excursion_label)
+            self.vertical_excursion_label = QLabel("V:")
+            excursion_layout.addWidget(self.vertical_excursion_label)
 
-        self.vertical_excursion_spinbox = QDoubleSpinBox()
-        self.vertical_excursion_spinbox.setValue(0.5)
-        self.vertical_excursion_spinbox.setSingleStep(0.1)
-        excursion_layout.addWidget(self.vertical_excursion_spinbox)
+            self.vertical_excursion_spinbox = QDoubleSpinBox()
+            self.vertical_excursion_spinbox.setValue(0.5)
+            self.vertical_excursion_spinbox.setSingleStep(0.1)
+            excursion_layout.addWidget(self.vertical_excursion_spinbox)
 
-        self.plot = MatplotlibWidget(self, title="Response (SysID)")
-        resp_right.addWidget(self.plot)
+            self.plot = MatplotlibWidget(self, title="Response (SysID)")
+            resp_right.addWidget(self.plot)
 
-        self._plot_queue = deque()
-        self._plot_timer = QTimer()
-        self._plot_timer.timeout.connect(self.__flush_plot_queue)
-        self._plot_timer.start(200)
+            self._plot_queue = deque()
+            self._plot_timer = QTimer()
+            self._plot_timer.timeout.connect(self.__flush_plot_queue)
+            self._plot_timer.start(200)
 
-        buttons_layout = QHBoxLayout()
-        resp_right.addLayout(buttons_layout)
+            buttons_layout = QHBoxLayout()
+            resp_right.addLayout(buttons_layout)
 
-        self.start_button = QPushButton("START SysID")
-        self.start_button.setStyleSheet("background-color: red; color: white;")
-        self.start_button.clicked.connect(self.__start_button_clicked)
-        buttons_layout.addWidget(self.start_button)
+            self.start_button = QPushButton("START SysID")
+            self.start_button.setStyleSheet("background-color: red; color: white;")
+            self.start_button.clicked.connect(self.__start_button_clicked)
+            buttons_layout.addWidget(self.start_button)
 
-        self.stop_button = QPushButton("STOP SysID")
-        self.stop_button.setStyleSheet("background-color: green; color: white;")
-        self.stop_button.clicked.connect(self.__stop_button_clicked)
-        buttons_layout.addWidget(self.stop_button)
+            self.stop_button = QPushButton("STOP SysID")
+            self.stop_button.setStyleSheet("background-color: green; color: white;")
+            self.stop_button.clicked.connect(self.__stop_button_clicked)
+            buttons_layout.addWidget(self.stop_button)
 
         orbit_tab = QWidget()
         orbit_layout = QVBoxLayout(orbit_tab)
@@ -988,76 +992,79 @@ class MainWindow(QMainWindow):
             print(f"Failed to update IPBSM/QF1FF/QD0FF state on startup: {e}")
 
 # ==== Misalignment Tab ====
-        mis_tab = QWidget()
-        mis_layout = QVBoxLayout(mis_tab)
-        self.tabs.addTab(mis_tab, "Misalignment")
+        is_rftrack = "RFTrack" in self.interface.__class__.__name__
+        if is_rftrack:
 
-        mis_group = QGroupBox("Random Misalignment (simulation only)")
-        mis_group_layout = QVBoxLayout()
-        mis_group.setLayout(mis_group_layout)
-        mis_layout.addWidget(mis_group)
+            mis_tab = QWidget()
+            mis_layout = QVBoxLayout(mis_tab)
+            self.tabs.addTab(mis_tab, "Misalignment")
 
-        mis_row1 = QHBoxLayout()
-        mis_group_layout.addLayout(mis_row1)
-        mis_row1.addWidget(QLabel("Seed:"))
-        self.mis_seed_spinbox = QSpinBox()
-        self.mis_seed_spinbox.setRange(0, 999999)
-        self.mis_seed_spinbox.setValue(0)
-        mis_row1.addWidget(self.mis_seed_spinbox)
+            mis_group = QGroupBox("Random Misalignment (simulation only)")
+            mis_group_layout = QVBoxLayout()
+            mis_group.setLayout(mis_group_layout)
+            mis_layout.addWidget(mis_group)
 
-        mis_row2 = QHBoxLayout()
-        mis_group_layout.addLayout(mis_row2)
-        mis_row2.addWidget(QLabel("σ(dx,dy) [μm]:"))
-        self.mis_dx_spinbox = QDoubleSpinBox()
-        self.mis_dx_spinbox.setRange(0.0, 1000.0)
-        self.mis_dx_spinbox.setValue(100.0)
-        self.mis_dx_spinbox.setSingleStep(10.0)
-        mis_row2.addWidget(self.mis_dx_spinbox)
-        self.mis_dy_spinbox = QDoubleSpinBox()
-        self.mis_dy_spinbox.setRange(0.0, 1000.0)
-        self.mis_dy_spinbox.setValue(100.0)
-        self.mis_dy_spinbox.setSingleStep(10.0)
-        mis_row2.addWidget(self.mis_dy_spinbox)
+            mis_row1 = QHBoxLayout()
+            mis_group_layout.addLayout(mis_row1)
+            mis_row1.addWidget(QLabel("Seed:"))
+            self.mis_seed_spinbox = QSpinBox()
+            self.mis_seed_spinbox.setRange(0, 999999)
+            self.mis_seed_spinbox.setValue(0)
+            mis_row1.addWidget(self.mis_seed_spinbox)
 
-        mis_row3 = QHBoxLayout()
-        mis_group_layout.addLayout(mis_row3)
-        mis_row3.addWidget(QLabel("σ(roll) [μrad]:"))
-        self.mis_dtheta_spinbox = QDoubleSpinBox()
-        self.mis_dtheta_spinbox.setRange(0.0, 1000.0)
-        self.mis_dtheta_spinbox.setValue(200.0)
-        self.mis_dtheta_spinbox.setSingleStep(10.0)
-        mis_row3.addWidget(self.mis_dtheta_spinbox)
+            mis_row2 = QHBoxLayout()
+            mis_group_layout.addLayout(mis_row2)
+            mis_row2.addWidget(QLabel("σ(dx,dy) [μm]:"))
+            self.mis_dx_spinbox = QDoubleSpinBox()
+            self.mis_dx_spinbox.setRange(0.0, 1000.0)
+            self.mis_dx_spinbox.setValue(100.0)
+            self.mis_dx_spinbox.setSingleStep(10.0)
+            mis_row2.addWidget(self.mis_dx_spinbox)
+            self.mis_dy_spinbox = QDoubleSpinBox()
+            self.mis_dy_spinbox.setRange(0.0, 1000.0)
+            self.mis_dy_spinbox.setValue(100.0)
+            self.mis_dy_spinbox.setSingleStep(10.0)
+            mis_row2.addWidget(self.mis_dy_spinbox)
 
-        mis_row4 = QHBoxLayout()
-        mis_group_layout.addLayout(mis_row4)
-        mis_row4.addWidget(QLabel("σ(dk/k) [-]:"))
-        self.mis_dk_spinbox = QDoubleSpinBox()
-        self.mis_dk_spinbox.setRange(0.0, 0.1)
-        self.mis_dk_spinbox.setDecimals(4)
-        self.mis_dk_spinbox.setValue(0.001)
-        self.mis_dk_spinbox.setSingleStep(0.0005)
-        mis_row4.addWidget(self.mis_dk_spinbox)
+            mis_row3 = QHBoxLayout()
+            mis_group_layout.addLayout(mis_row3)
+            mis_row3.addWidget(QLabel("σ(roll) [μrad]:"))
+            self.mis_dtheta_spinbox = QDoubleSpinBox()
+            self.mis_dtheta_spinbox.setRange(0.0, 1000.0)
+            self.mis_dtheta_spinbox.setValue(200.0)
+            self.mis_dtheta_spinbox.setSingleStep(10.0)
+            mis_row3.addWidget(self.mis_dtheta_spinbox)
 
-        mis_button_layout = QHBoxLayout()
-        mis_group_layout.addLayout(mis_button_layout)
-        self.mis_apply_button = QPushButton("Apply Random Misalignment")
-        self.mis_apply_button.clicked.connect(self.__apply_misalignment_clicked)
-        mis_button_layout.addWidget(self.mis_apply_button)
+            mis_row4 = QHBoxLayout()
+            mis_group_layout.addLayout(mis_row4)
+            mis_row4.addWidget(QLabel("σ(dk/k) [-]:"))
+            self.mis_dk_spinbox = QDoubleSpinBox()
+            self.mis_dk_spinbox.setRange(0.0, 0.1)
+            self.mis_dk_spinbox.setDecimals(4)
+            self.mis_dk_spinbox.setValue(0.001)
+            self.mis_dk_spinbox.setSingleStep(0.0005)
+            mis_row4.addWidget(self.mis_dk_spinbox)
 
-        self.mis_reset_button = QPushButton("RESET lattice")
-        self.mis_reset_button.clicked.connect(self.__reset_misalignment_clicked)
-        mis_button_layout.addWidget(self.mis_reset_button)
+            mis_button_layout = QHBoxLayout()
+            mis_group_layout.addLayout(mis_button_layout)
+            self.mis_apply_button = QPushButton("Apply Random Misalignment")
+            self.mis_apply_button.clicked.connect(self.__apply_misalignment_clicked)
+            mis_button_layout.addWidget(self.mis_apply_button)
 
-        self.log_widget = QPlainTextEdit()
-        self.log_widget.setReadOnly(True)
-        main_layout.addWidget(self.log_widget)
+            self.mis_reset_button = QPushButton("RESET lattice")
+            self.mis_reset_button.clicked.connect(self.__reset_misalignment_clicked)
+            mis_button_layout.addWidget(self.mis_reset_button)
 
-        self._stdout_stream = EmittingStream()
-        self._stdout_stream.textWritten.connect(self._append_log_text)
-        self._old_stdout = sys.stdout
-        self._old_stderr = sys.stderr
-        sys.stdout = self._stdout_stream
-        sys.stderr = self._stdout_stream
+            self.log_widget = QPlainTextEdit()
+            self.log_widget.setReadOnly(True)
+            main_layout.addWidget(self.log_widget)
+
+            self._stdout_stream = EmittingStream()
+            self._stdout_stream.textWritten.connect(self._append_log_text)
+            self._old_stdout = sys.stdout
+            self._old_stderr = sys.stderr
+            sys.stdout = self._stdout_stream
+            sys.stderr = self._stdout_stream
 
     # ---------------------------------------------------------
     # ログ関連
@@ -1480,9 +1487,40 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------
     # Dispersion monitor + knobs
     # ---------------------------------------------------------
+
     def __measure_dispersion_button_clicked(self):
         try:
-            result = self.S.measure_dispersion(self.interface)
+            print("Measuring dispersion...")
+            bpms = self.S.get_bpms()["names"]
+
+            # --- Nominal energy ---
+            self.interface.reset_energy()
+            self.S.pull(self.interface)
+
+            O0 = self.S.get_orbit(bpms)
+            O0x = O0['x'].reshape(-1, 1)
+            O0y = O0['y'].reshape(-1, 1)
+
+            # --- Shifted energy ---
+            dP_P = self.interface.change_energy()
+            print("dP/P =", dP_P)
+            self.S.pull(self.interface)
+
+            O1 = self.S.get_orbit(bpms)
+            O1x = O1['x'].reshape(-1, 1)
+            O1y = O1['y'].reshape(-1, 1)
+
+            # --- Restore ---
+            self.interface.reset_energy()
+
+            # --- Dispersion ---
+            eta_x = (O1x - O0x) / dP_P
+            eta_y = (O1y - O0y) / dP_P
+
+            result = {
+                "eta_x": eta_x,
+                "eta_y": eta_y
+            }
         except Exception as e:
             print(f"Dispersion measurement failed: {e}")
             return

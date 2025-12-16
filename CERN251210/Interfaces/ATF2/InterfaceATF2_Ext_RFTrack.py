@@ -181,6 +181,8 @@ class InterfaceATF2_Ext_RFTrack():
     def change_energy(self, grad=None, **kwargs):
         self.__setup_beam1()
         self.__track_bunch()
+        dP_P = self.dfs_test_energy - 1.0
+        return dP_P
 
     def reset_energy(self, grad=1,**kwargs):
         self.__setup_beam0( )
@@ -349,6 +351,7 @@ class InterfaceATF2_Ext_RFTrack():
         self.lattice.scatter_elements('bpm', sigma_x, sigma_y, 0, 0, 0, 0, 'center')
         self.__track_bunch()
 
+    """
     def measure_dispersion(self):
         print("Measuring dispersion (RF-Track)...")
 
@@ -375,6 +378,7 @@ class InterfaceATF2_Ext_RFTrack():
         eta_y = (y1 - y0) / delta
 
         return {"eta_x": eta_x, "eta_y": eta_y}
+    """
 
     def apply_qmag_current(self, name, dA):
         dk1l = self.kl_per_A[name]*dA

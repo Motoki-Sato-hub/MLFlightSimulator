@@ -82,16 +82,16 @@ class State:
         return orbit
 
 
-    def change_energy(self, interface, *args):
-        interface.change_energy(*args)
+    def change_energy(self, interface):
+        interface.change_energy()
         pass
 
-    def reset_energy(self, interface, *args):
-        interface.reset_energy(*args)
+    def reset_energy(self, interface):
+        interface.reset_energy()
         pass
 
-    def change_intensity(self, interface, *args):
-        interface.change_intensity(*args)
+    def change_intensity(self, interface):
+        interface.change_intensity()
         pass
 
     def reset_intensity(self, interface, *args):

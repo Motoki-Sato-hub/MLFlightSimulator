@@ -120,13 +120,13 @@ class InterfaceATF2_Ext:
         return [index for index, string in enumerate(self.sequence) if string in names]
     
     def get_bpms_S(self):
-        raise NotImplementedError("get_bpms_S not available in ATF2_Ext")
+        p = PV('LINAC:monitors')
+        a = p.get().reshape((-1, 20))
+        return np.asarray(a[self.bpm_indexes, 4], dtype=float)
+
 
     def get_element_S(self, name):
         raise NotImplementedError("get_element_S not available in ATF2_Ext")
-
-    def measure_dispersion(self):
-        raise NotImplementedError("Dispersion measurement not available in ATF2_Ext")
 
     def get_ipbsm_state(self):
         raise NotImplementedError("IPBSM not available in ATF2_Ext")

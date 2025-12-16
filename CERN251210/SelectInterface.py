@@ -119,9 +119,9 @@ class InterfaceSelectionDialog(QDialog):
                     from Interfaces.ATF2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
                     globals()['InterfaceATF2_Ext_RFTrack'] = InterfaceATF2_Ext_RFTrack
                     self.selected_interface = InterfaceATF2_Ext_RFTrack(jitter=0.2, bpm_resolution=0.1)
-                    self.selected_interface.align_everything()
-                    self.selected_interface.misalign_quadrupoles()
-                    self.selected_interface.misalign_bpms()
+                    #self.selected_interface.align_everything()
+                    #self.selected_interface.misalign_quadrupoles()
+                    #self.selected_interface.misalign_bpms()
 
 
         elif self.selected_acc == 'CLEAR':
