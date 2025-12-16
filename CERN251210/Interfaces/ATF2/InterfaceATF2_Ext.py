@@ -48,6 +48,75 @@ class InterfaceATF2_Ext:
             "MQD8FF", "MQF7FF", "MQF5BFF", "MQD4BFF", "MQF3FF", "MQD2BFF", "MQD2AFF",
             "MSF1FF", "MPREIP", "MIPB"
             ]
+        
+        self.MONITOR_INDEX_TO_NAME = {
+            0: "MB1X",
+            1: "MB2X",
+            2: "MQF1X",
+            3: "MQD2X",
+            4: "MQF3X",
+            5: "MQF4X",
+            6: "MQD5X",
+            7: "MQF6X",
+            8: "MQF7X",
+            9: "MQD8X",
+            10: "MQF9X",
+            11: "MQD10X",
+            12: "MQF11X",
+            13: "MQD12X",
+            14: "MQF13X",
+            15: "MQD14X",
+            16: "MQF15X",
+            17: "MQD16X",
+            18: "MQF17X",
+            19: "MQD18X",
+            20: "MQF19X",
+            21: "MQD20X",
+            22: "MQF21X",
+            23: "IPBPM1",
+            24: "IPBPM2",
+            25: "nBPM1",
+            26: "nBPM2",
+            27: "nBPM3",
+            28: "MQM16FF",
+            29: "MQM15FF",
+            30: "MQM14FF",
+            31: "MFB2FF",
+            32: "MQM13FF",
+            33: "MQM12FF",
+            34: "MFB1FF",
+            35: "MQM11FF",
+            36: "MQD10BFF",
+            37: "MQD10AFF",
+            38: "MQF9BFF",
+            39: "MSF6FF",
+            40: "MQF9AFF",
+            41: "MQD8FF",
+            42: "MQF7FF",
+            43: "MQD6FF",
+            44: "MQF5BFF",
+            45: "MSF5FF",
+            46: "MQF5AFF",
+            47: "MQD4BFF",
+            48: "MSD4FF",
+            49: "MQD4AFF",
+            50: "MQF3FF",
+            51: "MQD2BFF",
+            52: "MQD2AFF",
+            53: "MSF1FF",
+            54: "MQF1FF",
+            55: "MSD0FF",
+            56: "MQD0FF",
+            57: "M1&2IP",
+            58: "MPIP",
+            59: "MDUMP",
+            60: "ICT1X",
+            61: "ICTDUMP",
+            62: "MW1X",
+            63: "MW1IP",
+            64: "MPREIP",
+            65: "MIPA",
+            66: "MIPB"}
 
         # Use list comprehension to filter out strings starting with 'Z' or 'z'
         monitors_from_sequence = [string for string in sequence if not string.lower().startswith('z')]
@@ -118,11 +187,6 @@ class InterfaceATF2_Ext:
 
     def get_elements_position(self,names):
         return [index for index, string in enumerate(self.sequence) if string in names]
-    
-    def get_bpms_S(self):
-        p = PV('LINAC:monitors')
-        a = p.get().reshape((-1, 20))
-        return np.asarray(a[self.bpm_indexes, 4], dtype=float)
 
 
     def get_element_S(self, name):
@@ -230,9 +294,6 @@ class InterfaceATF2_Ext:
         for sample in range(self.nsamples):
             raw = np.asarray(p.get(), dtype=float)
 
-            # --- drop header (1000) ---
-            raw = raw[1:]
-
             # --- reshape: 1 BPM = 10 values ---
             a = raw.reshape((-1, 10))
 
@@ -257,7 +318,7 @@ class InterfaceATF2_Ext:
 
             time.sleep(1)
 
-        names = self.bpms if isinstance(self.bpms, list) else [self.bpms]
+        names = [self.MONITOR_INDEX_TO_NAME[k] for k in self.bpm_indexes]
 
         x = np.vstack(x_list) / 1e3   # mm
         y = np.vstack(y_list) / 1e3   # mm
