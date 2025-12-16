@@ -149,22 +149,27 @@ class State:
         self.nonlinear_knobs = {k: 0.0 for k in interface.get_nonlinear_knob_names()}
 
     def set_linear_knob(self, interface, name, value):
+        if not hasattr(self, "linear_knobs"):
+            self.init_knobs(interface)
         interface.set_linear_knob(name, value)
         self.linear_knobs[name] = value
-        self.pull(interface)
+        #self.pull(interface)
+
 
     def set_nonlinear_knob(self, interface, name, value):
+        if not hasattr(self, "nonlinear_knobs"):
+            self.init_knobs(interface)
         interface.set_nonlinear_knob(name, value)
         self.nonlinear_knobs[name] = value
-        self.pull(interface)
+        #self.pull(interface)
 
     def apply_qmag_current(self, interface, name, dA):
         interface.apply_qmag_current(name, dA)
-        self.pull(interface)
+        #self.pull(interface)
 
     def apply_sum_knob(self, interface, dA):
         interface.apply_sum_knob(dA)
-        self.pull(interface)
+        #self.pull(interface)
 
     def measure_ipbsm(self, interface):
         state = interface.get_ipbsm_state()
@@ -174,7 +179,7 @@ class State:
         }
         return self.ipbsm
     
-    def get_ipmsm_state(self, interface):
+    def get_ipbsm_state(self, interface):
         return interface.get_ipbsm_state()
 
 

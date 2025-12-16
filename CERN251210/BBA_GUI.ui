@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>697</width>
-    <height>853</height>
+    <width>645</width>
+    <height>860</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -61,10 +61,23 @@
                 </widget>
                </item>
                <item>
-                <widget class="QLineEdit" name="session_database_3"/>
+                <widget class="QLineEdit" name="session_database_3">
+                 <property name="maximumSize">
+                  <size>
+                   <width>500</width>
+                   <height>16777215</height>
+                  </size>
+                 </property>
+                </widget>
                </item>
                <item>
                 <widget class="QPushButton" name="pushButton_11">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
                  <property name="text">
                   <string>...</string>
                  </property>
@@ -114,6 +127,12 @@
                </item>
                <item>
                 <widget class="QPushButton" name="pushButton_8">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
                  <property name="text">
                   <string>...</string>
                  </property>
@@ -158,13 +177,19 @@
                    <property name="maximumSize">
                     <size>
                      <width>500</width>
-                     <height>21</height>
+                     <height>16777215</height>
                     </size>
                    </property>
                   </widget>
                  </item>
                  <item>
                   <widget class="QPushButton" name="pushButton_9">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
                    <property name="text">
                     <string>...</string>
                    </property>
@@ -173,46 +198,10 @@
                 </layout>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_17">
-                 <item>
-                  <widget class="QLabel" name="label_20">
-                   <property name="text">
-                    <string>Change energy</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLineEdit" name="dfs_change_3">
-                   <property name="maximumSize">
-                    <size>
-                     <width>500</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <layout class="QHBoxLayout" name="horizontalLayout_17"/>
                </item>
                <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_18">
-                 <item>
-                  <widget class="QLabel" name="label_21">
-                   <property name="text">
-                    <string>Reset energy</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLineEdit" name="dfs_reset_3">
-                   <property name="maximumSize">
-                    <size>
-                     <width>500</width>
-                     <height>16777215</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
+                <layout class="QHBoxLayout" name="horizontalLayout_18"/>
                </item>
               </layout>
              </item>
@@ -258,6 +247,12 @@
                </item>
                <item>
                 <widget class="QPushButton" name="pushButton_10">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
                  <property name="text">
                   <string>...</string>
                  </property>
@@ -266,46 +261,10 @@
               </layout>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_20">
-               <item>
-                <widget class="QLabel" name="label_23">
-                 <property name="text">
-                  <string>Change intensity</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="wfs_change_3">
-                 <property name="maximumSize">
-                  <size>
-                   <width>500</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+              <layout class="QHBoxLayout" name="horizontalLayout_20"/>
              </item>
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_21">
-               <item>
-                <widget class="QLabel" name="label_24">
-                 <property name="text">
-                  <string>Reset intensity</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLineEdit" name="wfs_reset_3">
-                 <property name="maximumSize">
-                  <size>
-                   <width>500</width>
-                   <height>16777215</height>
-                  </size>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+              <layout class="QHBoxLayout" name="horizontalLayout_21"/>
              </item>
             </layout>
            </widget>
@@ -377,6 +336,13 @@
                  </item>
                 </layout>
                </item>
+               <item>
+                <widget class="QPushButton" name="load_correctors_button">
+                 <property name="text">
+                  <string>Load...</string>
+                 </property>
+                </widget>
+               </item>
               </layout>
              </widget>
             </item>
@@ -408,6 +374,13 @@
                   </widget>
                  </item>
                 </layout>
+               </item>
+               <item>
+                <widget class="QPushButton" name="load_bpms_button">
+                 <property name="text">
+                  <string>Load...</string>
+                 </property>
+                </widget>
                </item>
               </layout>
              </widget>
@@ -447,6 +420,12 @@
                </item>
                <item>
                 <widget class="QRadioButton" name="mode_wakefield">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
                  <property name="text">
                   <string>Wakefield</string>
                  </property>
@@ -456,9 +435,15 @@
              </item>
              <item>
               <widget class="QPushButton" name="compute_response_matrix_button">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="maximumSize">
                 <size>
-                 <width>1000</width>
+                 <width>2000</width>
                  <height>16777215</height>
                 </size>
                </property>
@@ -496,7 +481,7 @@
                 <widget class="QLineEdit" name="lineEdit">
                  <property name="maximumSize">
                   <size>
-                   <width>460</width>
+                   <width>410</width>
                    <height>16777215</height>
                   </size>
                  </property>
@@ -520,7 +505,7 @@
                 <widget class="QLineEdit" name="lineEdit_2">
                  <property name="maximumSize">
                   <size>
-                   <width>460</width>
+                   <width>410</width>
                    <height>16777215</height>
                   </size>
                  </property>
@@ -541,7 +526,7 @@
                 <widget class="QLineEdit" name="lineEdit_3">
                  <property name="maximumSize">
                   <size>
-                   <width>460</width>
+                   <width>410</width>
                    <height>16777215</height>
                   </size>
                  </property>
@@ -562,7 +547,7 @@
                 <widget class="QLineEdit" name="lineEdit_4">
                  <property name="maximumSize">
                   <size>
-                   <width>460</width>
+                   <width>410</width>
                    <height>16777215</height>
                   </size>
                  </property>
@@ -583,7 +568,7 @@
                 <widget class="QLineEdit" name="lineEdit_5">
                  <property name="maximumSize">
                   <size>
-                   <width>460</width>
+                   <width>410</width>
                    <height>16777215</height>
                   </size>
                  </property>
@@ -604,7 +589,7 @@
                 <widget class="QLineEdit" name="lineEdit_6">
                  <property name="maximumSize">
                   <size>
-                   <width>460</width>
+                   <width>410</width>
                    <height>16777215</height>
                   </size>
                  </property>

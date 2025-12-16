@@ -95,10 +95,6 @@ class SaveOrLoad_BBA():
             "rcond": rcond,
             "iters": iters,
             "gain": gain,
-            "dfs_reset": self._read_reset_energy(),
-            "dfs_change": self._read_change_energy(),
-            "wfs_reset": self._read_reset_intensity(),
-            "wfs_change": self._read_change_intensity(),
             "data_dirs": {k: (self._expand_data_path(v["dir"]) if v else None)
                           for k, v in self._data_dirs.items()},
         }
@@ -175,18 +171,7 @@ class SaveOrLoad_BBA():
         if "rcond" in settings: self.lineEdit_4.setText(str(settings["rcond"]))
         if "iters" in settings:  self.lineEdit_5.setText(str(settings["iters"]))
         if "gain" in settings: self.lineEdit_6.setText(str(settings["gain"]))
-        if "dfs_reset" in settings:
-            text = ", ".join(f"{k} = {v:g}" for k, v in settings["dfs_reset"].items())
-            self.dfs_reset_3.setText(text)
-        if "dfs_change" in settings:
-            text = ", ".join(f"{k} = {v:g}" for k, v in settings["dfs_change"].items())
-            self.dfs_change_3.setText(text)
-        if "wfs_reset" in settings:
-            text = ", ".join(f"{k} = {v:g}" for k, v in settings["wfs_reset"].items())
-            self.wfs_reset_3.setText(text)
-        if "wfs_change" in settings:
-            text = ", ".join(f"{k} = {v:g}" for k, v in settings["wfs_change"].items())
-            self.wfs_change_3.setText(text)
+
         if hasattr(self, "trajectory_response_3"): self.trajectory_response_3.setText(settings["data_dirs"]["traj"] or "")
         if hasattr(self, "dfs_response_3"): self.dfs_response_3.setText(settings["data_dirs"]["dfs"] or "")
         if hasattr(self, "wfs_response_3"): self.wfs_response_3.setText(settings["data_dirs"]["wfs"] or "")

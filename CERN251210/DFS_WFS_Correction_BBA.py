@@ -153,7 +153,6 @@ class DFS_WFS_Correction_BBA():
                     k_plus = float(bact_p[i_corr])
                     k_minus = float(bact_m[i_corr])
 
-
                     if pairs == pairs0 and plane == "x":
                         px = bxp[indeces]
                         mx = bxm[indeces]
@@ -175,8 +174,7 @@ class DFS_WFS_Correction_BBA():
                         continue
                     column_value = np.full(len(selected_bpms), np.nan, dtype=float)
                     for k, b in enumerate(present):
-                        column_value[pos[b]] = (plus_value[k] - minus_value[k]) / (
-                                    k_plus - k_minus)  # (bpm plus - bpm minus) /(kick plus - kick minus0
+                        column_value[pos[b]] = (plus_value[k] - minus_value[k]) / (k_plus - k_minus)  # (bpm plus - bpm minus) /(kick plus - kick minus0
                     cols.append(column_value)
 
                 if cols:
@@ -222,20 +220,20 @@ class DFS_WFS_Correction_BBA():
         R0xx, R0yy, R0xy, R0yx, R1xx, R1yy, R1xy, R1yx, R2xx, R2yy, R2xy, R2yx, B0x, B0y = self._get_data_from_loaded_directories(
             selected_corrs=corrs, selected_bpms=bpms, _force_triangular=self._force_triangular())
 
-        R0 = np.block([
-            [R0xx, R0xy],
-            [R0yx, R0yy],
-        ])
-
-        R1 = np.block([
-            [R1xx, R1xy],
-            [R1yx, R1yy],
-        ])
-
-        R2 = np.block([
-            [R2xx, R2xy],
-            [R2yx, R2yy],
-        ])
+        # R0 = np.block([
+        #     [R0xx, R0xy],
+        #     [R0yx, R0yy],
+        # ])
+        #
+        # R1 = np.block([
+        #     [R1xx, R1xy],
+        #     [R1yx, R1yy],
+        # ])
+        #
+        # R2 = np.block([
+        #     [R2xx, R2xy],
+        #     [R2yx, R2yy],
+        # ])
 
         Axx=[]
         Ayy=[]

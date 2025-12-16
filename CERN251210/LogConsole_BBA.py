@@ -7,7 +7,6 @@ class LogConsole(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Log Console")
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setMinimumSize(520, 320)
         self.resize(700, 420)

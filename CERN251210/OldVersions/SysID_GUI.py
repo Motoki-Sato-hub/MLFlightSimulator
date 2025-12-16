@@ -8,6 +8,7 @@ import signal
 import time
 import sys
 import os
+from dataclasses import dataclass
 from PyQt6 import uic
 from PyQt6.QtGui import QPixmap, QIcon, QPainter
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QListWidget, QMessageBox, QProgressBar
@@ -30,8 +31,14 @@ class Machine(Enum):
     ATF2_DR = "ATF2_DR"
     ATF2_EXT = "ATF2_Ext"
     ATF2_LINAC = "ATF2_Linac"
-    ATF2_DR_RFT = "ATF2_DR_RFT"
     ATF2_EXT_RFT = "ATF2_Ext_RFT"
+
+@dataclass()
+class MachineSettings:
+    energy: str
+    intensity: str
+    reset_e: str
+    reset_ch: str
 
 class MatplotlibWidget(FigureCanvas):
     def __init__(self, parent=None, title='', orbit=None):
@@ -45,17 +52,13 @@ class Worker(QObject):
     progress=pyqtSignal(int)
     finished = pyqtSignal()
 
-    def __init__(self, interface, state, correctors, bpms, hkicks,vkicks, max_osc_h, max_osc_v, max_curr_h, max_curr_v, Niter,output_dir):
+    def __init__(self, interface, state, correctors, bpms, kicks, max_osc_h, max_osc_v, max_curr_h, max_curr_v, Niter):
         super().__init__()
-        self.output_dir=output_dir
         self.interface = interface
         self.S = state
         self.correctors = correctors
-        self.hcorrs = I.get_hcorrectors_names()
-        self.vcorrs = I.get_vcorrectors_names()
         self.bpms = bpms
-        self.hkicks = hkicks
-        self.vkicks = vkicks
+        self.kicks = kicks
         self.max_osc_h = max_osc_h
         self.max_osc_v = max_osc_v
         self.max_curr_h = max_curr_h
@@ -75,8 +78,7 @@ class Worker(QObject):
         self.progress_value=0
         I = self.interface
         S = self.S
-        vkicks = self.vkicks
-        hkicks = self.hkicks
+        kicks = self.kicks
 
         def clamp(val, max_val):
             if max_val == 0.0:
@@ -86,67 +88,47 @@ class Worker(QObject):
         for iter in range(self.Niter):
             if self.running == False:
                 break
-
             for icorr, corrector in enumerate(self.correctors):
-                corr = S.get_correctors(corrector)
                 if self.running == False:
                     break
 
-                if corrector in S.get_hcorrectors_names():
-                    max_curr=self.max_curr_h
-                    kick=hkicks[icorr]
-                elif corrector in S.get_vcorrectors_names():
-                    max_curr=self.max_curr_v
-                    kick=vkicks[icorr]
+                corr = S.get_correctors(corrector)
+                kick = kicks[icorr]
 
                 if not self.running:
                     break
 
-                corr_changed = False
-
                 print(f"Corrector {corrector} '+' excitation...")
-                filename_p=f'DATA_{corrector}_p{iter:04d}.pkl'
-                if not os.path.isfile(filename_p):
-                    print('corr[bds] =', corr['bdes'], ' also kick = ', kick) 
-                    curr_p = corr['bdes'] + kick
-                    if corrector in S.get_hcorrectors_names():
-                        curr_p = clamp(curr_p, self.max_curr_h)
-                    else:
-                        curr_p = clamp(curr_p, self.max_curr_v)
-                    I.push(corrector, curr_p)
-                    corr_changed = True
-
-                    if not self.running:
-                        break
-
-                    S.pull(I)
-                    S.save(filename=filename_p)
+                curr_p = corr['bdes'] + kick
+                if corrector in S.get_hcorrectors_names():
+                    curr_p = clamp(curr_p, self.max_curr_h)
                 else:
-                    S.load(filename_p)
+                    curr_p = clamp(curr_p, self.max_curr_v)
+                I.push(corrector, curr_p)
+
+                if not self.running:
+                    break
+
+                S.pull(I)
+                S.save(filename=f'DATA_{corrector}_p{iter:04d}.pkl')
                 Op = S.get_orbit(self.bpms)
 
                 print(f"Corrector {corrector} '-' excitation...")
-                filename_m=f'DATA_{corrector}_m{iter:04d}.pkl'
-                if not os.path.isfile(filename_m):
-                    curr_m = corr['bdes'] - kick
-                    if corrector in S.get_hcorrectors_names():
-                        curr_m = clamp(curr_m, self.max_curr_h)
-                    else:
-                        curr_m = clamp(curr_m, self.max_curr_v)
-                    I.push(corrector, curr_m)
-                    corr_changed = True
-
-                    if not self.running:
-                        break
-
-                    S.pull(I)
-                    S.save(filename=f'DATA_{corrector}_m{iter:04d}.pkl')
+                curr_m = corr['bdes'] - kick
+                if corrector in S.get_hcorrectors_names():
+                    curr_m = clamp(curr_m, self.max_curr_h)
                 else:
-                    S.load(filename_m)
+                    curr_m = clamp(curr_m, self.max_curr_v)
+                I.push(corrector, curr_m)
+
+                if not self.running:
+                    break
+
+                S.pull(I)
+                S.save(filename=f'DATA_{corrector}_m{iter:04d}.pkl')
                 Om = S.get_orbit(self.bpms)
 
-                if corr_changed:
-                    I.push(corrector, corr['bdes'])
+                I.push(corrector, corr['bdes'])
 
                 Diff_x = (Op['x'] - Om['x']) / 2.0
                 Diff_y = (Op['y'] - Om['y']) / 2.0
@@ -162,17 +144,17 @@ class Worker(QObject):
                 if corrector in S.get_hcorrectors_names():
                     Diff_x_clean = Diff_x[~np.isnan(Diff_x)]
                     if np.max(np.abs(Diff_x_clean)) != 0.0:
-                        hkicks[icorr] *= self.max_osc_h / np.max(np.abs(Diff_x_clean))
-                    hkicks[icorr] = 0.8 * hkicks[icorr] + 0.2 * kick
+                        kicks[icorr] *= self.max_osc_h / np.max(np.abs(Diff_x_clean))
                 else:
                     Diff_y_clean = Diff_y[~np.isnan(Diff_y)]
                     if np.max(np.abs(Diff_y_clean)) != 0.0:
-                        vkicks[icorr] *= self.max_osc_v / np.max(np.abs(Diff_y_clean))
-                    vkicks[icorr] = 0.8 * vkicks[icorr] + 0.2 * kick
+                        kicks[icorr] *= self.max_osc_v / np.max(np.abs(Diff_y_clean))
 
-                with open(os.path.join(self.output_dir,'kicks.txt'), 'w') as f:
-                    for i, c in enumerate(self.correctors):
-                        f.write(f'{c} {hkicks[i]} {vkicks[i]}\n')
+                kicks[icorr] = 0.8 * kicks[icorr] + 0.2 * kick
+
+                with open('kicks.txt', 'w') as f:
+                    for c, k in zip(self.correctors, kicks):
+                        f.write(f'{c} {k}\n')
 
                 time.sleep(1)
 
@@ -193,10 +175,17 @@ class MainWindow(QMainWindow):
     def __init__(self, interface, dir_name):
         super().__init__()
 
+        import traceback
+        print("SysID constructed")
+        traceback.print_stack()
+
+
+        I = self.interface = interface
+
         # SysID
         self.worker = None
         self.thread = None
-        self._activate_mode=None
+        self.counter=-1
 
         self.cwd = os.getcwd()
         self.interface = interface
@@ -238,8 +227,8 @@ class MainWindow(QMainWindow):
         self.choose_mode.setCurrentText(Mode.Orbit.value)
         self.mode=Mode.Orbit
         self.choose_mode.currentTextChanged.connect(self._choose_the_correction_mode)
-        self.initial_hkick_settings.setText("0.01")
-        self.initial_vkick_settings.setText("0.01")
+        self.change_energy_settings.setText("")
+        self.change_intensity_settings.setText("")
 
         self.correctors_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.correctors_list.insertItems(0, correctors_list)
@@ -258,63 +247,65 @@ class MainWindow(QMainWindow):
         if hasattr(self, "working_directory_dialog"):
             self.working_directory_dialog.clicked.connect(self._pick_and_load_data_dir)
         self.__set_status_in_title("[Idle]")
+
+        self._machine_settings={
+            Machine.ATF2_DR: MachineSettings(
+                energy="rel_phase=5",
+                intensity="laserintensity=0.1, ang_offset=2.0",
+                reset_e="rel_phase=0",
+                reset_ch="laserintensity=0.1",
+            ),
+            Machine.ATF2_EXT: MachineSettings(
+                energy="delta_freq=-2",
+                intensity="laserintensity=0.15",
+                reset_e="rel_phase=0",
+                reset_ch="laserintensity=0.1",
+            ),
+            Machine.ATF2_LINAC: MachineSettings(
+                energy="rel_phase=5.0",
+                intensity="laserintensity=0.15",
+                reset_e="rel_phase=0.0",
+                reset_ch="laserintensity=0.1",
+            ),
+            Machine.ATF2_EXT_RFT: MachineSettings(
+                energy="grad=0.98",
+                intensity="grad=0.90",
+                reset_e="grad=0",
+                reset_ch="grad=0",
+            ),
+        }
+
+        self.appropriate_settings_energy=None
+        self.appropriate_settings_intensity=None
+        self.appropriate_settings_reset_e=None
+        self.appropriate_settings_reset_ch=None
         interface_name=interface.get_name()
-        machine = Machine(interface_name)
+        machine=Machine(interface_name)
+        settings=self._machine_settings[machine]
+        self.appropriate_settings_energy=settings.energy
+        self.appropriate_settings_intensity=settings.intensity
+        self.appropriate_settings_reset_e=settings.reset_e
+        self.appropriate_settings_reset_ch=settings.reset_ch
 
-        self.modes_to_do=[]
-        self.counter=0
-        self.current_mode=None
-
-    def _current_measuring_mode(self):
-        if self.mode == Mode.All:
-            self.modes_to_do=[Mode.Orbit,Mode.Dispersion,Mode.Wakefield]
-        else:
-            self.modes_to_do=[self.mode]
-        self.counter=0
-
-    def _start_next_mode(self):
-        initial_hkick=self._read_initial_kicks()
-        #selected_correctors = self.interface.get_correctors()['names']
-        #kicks=initial_hkick*np.ones(len(self.selected_correctors),dtype=float)
-        if self.counter>=len(self.modes_to_do):
-            self.__set_status_in_title("[Idle]")
-            self.progressBar.setValue(100)
-            return
-        mode=self.modes_to_do[self.counter]
-        self.current_mode=mode
-        print(f"Currently at mode: {mode.name}")
-        self.__set_status_in_title(f"[Running {mode.name} mode]")
-        self.S.load('machine_status')
-        self.S.push(self.interface)
-
-        if mode==Mode.Dispersion:
-            self.interface.change_energy()
-            print("Energy changed")
-        elif mode==Mode.Wakefield:
-            self.interface.change_intensity()
-            print("Intensity changed")
-        self.progressBar.setValue(0)
-
-    def _read_all_parameters(self,text):
-        text = text.strip()
-        params = {}
-        for p in text.split(","):
-            p = p.strip()
-            if not p:
-                continue
-            k,v = p.split("=",1)
-            k = k.strip()
-            v = v.strip()
-            try:
-                params[k] = float(v)
-            except ValueError:
-                raise ValueError(f"Not a number encountered in {p}")
-        return params
 
     def _choose_the_correction_mode(self):
         data_mode=self.choose_mode.currentText()
         self.mode=Mode(data_mode)
 
+        if self.mode == Mode.Orbit:
+            self.change_energy_settings.setText("")
+            self.change_intensity_settings.setText("")
+        elif self.mode==Mode.Dispersion:
+            self.change_energy_settings.setText(self.appropriate_settings_energy)
+            self.change_intensity_settings.setText("")
+        elif self.mode==Mode.Wakefield:
+            self.change_energy_settings.setText("")
+            self.change_intensity_settings.setText(self.appropriate_settings_intensity)
+
+        elif self.mode==Mode.All:
+            self.change_energy_settings.setText("")
+            self.change_intensity_settings.setText("")
+            self.counter+=1
     def __save_correctors_button_clicked(self):
         dir_name = self.working_directory_input.text()
         os.makedirs (dir_name, exist_ok=True)
@@ -375,50 +366,73 @@ class MainWindow(QMainWindow):
     def __clear_bpms_button_clicked(self):
         self.bpms_list.clearSelection()
 
-    def _read_initial_kicks(self):
-        text=self.initial_hkick_settings.text().strip()
-        if not text:
-            return 0.1
-        try:
-            return float(text)
-        except ValueError as e:
-            print(e)
-            return 0.1
+    def _read_all_parameters(self,text):
+        text = text.strip()
+        params = {}
+        for p in text.split(","):
+            p = p.strip()
+            if not p:
+                continue
+            k,v = p.split("=",1)
+            k = k.strip()
+            v = v.strip()
+            try:
+                params[k] = float(v)
+            except ValueError:
+                raise ValueError(f"Not a number encountered in {p}")
+        return params
+
+    def _read_change_intensity(self):
+        text = self.change_intensity_settings.text()
+        return self._read_all_parameters(text)
+
+    def _read_change_energy(self):
+        text = self.change_energy_settings.text()
+        return self._read_all_parameters(text)
 
     def __start_button_clicked(self):
-        dir_name = self.working_directory_input.text()
-        os.makedirs (dir_name, exist_ok=True)
-        os.chdir (dir_name)
+        # if self.mode == Mode.All:
+        #     for mode in (Mode.Orbit, Mode.Dispersion, Mode.Wakefield):
+        #
         self.S = State(interface=self.interface)
         self.S.save(basename='machine_status')
+        if self.mode==Mode.Orbit:
+            print("Orbit mode active.")
+
+        elif self.mode==Mode.Dispersion:
+            print("Dispersion mode active.")
+            dfs_params_change = self._read_change_energy()
+            self.interface.change_energy(**dfs_params_change)
+
+        elif self.mode==Mode.Wakefield:
+            print("Wakefield mode active.")
+            wfs_params_change = self._read_change_intensity()
+            self.interface.change_intensity(**wfs_params_change)
 
         self.progressBar.setValue(0)
         if self.thread and self.thread.isRunning():
             return  # already running
 
+        self.__set_status_in_title("[Running...]")
+
+        dir_name = self.working_directory_input.text()
+        os.makedirs(dir_name, exist_ok=True)
+        os.chdir(dir_name)
+
         selected_correctors = [item.text() for item in self.correctors_list.selectedItems()]
-        self.selected_correctors = selected_correctors
         if not selected_correctors:
             for i in range(self.correctors_list.count()):
                 self.correctors_list.item(i).setSelected(True)
             selected_correctors = self.interface.get_correctors()['names']
 
         selected_bpms = [item.text() for item in self.bpms_list.selectedItems()]
-        self.selected_bpms = selected_bpms
         if not selected_bpms:
             for i in range(self.bpms_list.count()):
                 self.bpms_list.item(i).setSelected(True)
             selected_bpms = self.interface.get_bpms()['names']
 
-        self._current_measuring_mode()
-        self._start_next_mode()
 
-        # kicks = 0.1 * np.ones(len(selected_correctors), dtype=float)
-        initial_hkick=float(self.initial_hkick_settings.text())
-        initial_vkick=float(self.initial_vkick_settings.text())
-        hkicks=initial_hkick*np.ones(len(selected_correctors), dtype=float)
-        vkicks=initial_vkick*np.ones(len(selected_correctors), dtype=float)
-
+        kicks = 0.1 * np.ones(len(selected_correctors), dtype=float)
         max_osc_h = self.horizontal_excursion_spinbox.value()
         max_osc_v = self.vertical_excursion_spinbox.value()
         max_curr_h = self.max_horizontal_current_spinbox.value()
@@ -427,7 +441,7 @@ class MainWindow(QMainWindow):
         print(f"Niter: {Niter}")
 
         self.thread = QThread()
-        self.worker = Worker(self.interface, self.S, selected_correctors, selected_bpms, hkicks,vkicks ,max_osc_h, max_osc_v, max_curr_h, max_curr_v, Niter,dir_name)
+        self.worker = Worker(self.interface, self.S, selected_correctors, selected_bpms, kicks, max_osc_h, max_osc_v, max_curr_h, max_curr_v, Niter)
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
@@ -437,54 +451,12 @@ class MainWindow(QMainWindow):
 
         # Cleanup after thread is done
         def clear_thread():
-            try:
-                if self.current_mode==Mode.Orbit:
-                    print("Orbit mode active.")
-                elif self.current_mode==Mode.Dispersion:
-                    self.interface.reset_energy()
-                elif self.current_mode==Mode.Wakefield:
-                    self.interface.reset_intensity()
-            except Exception as e:
-                print(e)
+            self.thread = None
+            self.worker = None
             print("Restoring initial correctors' settings...")
             self.S.load('machine_status')
             self.S.push(self.interface)
             self.progressBar.setValue(100)
-            self.thread = None
-            self.worker = None
-            self.counter+=1
-            if self.counter< len(self.modes_to_do):
-                self._start_next_mode()
-                project_name = self.interface.get_name()
-                time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-                dir_name = f"~/flight-simulator-data/{project_name}_{time_str}"
-                dir_name = os.path.expanduser(os.path.expandvars(dir_name))
-                os.makedirs(dir_name, exist_ok=True)
-                self.working_directory_input.setText(dir_name)
-
-                initial_hkick = self._read_initial_kicks()
-                hkicks = initial_hkick * np.ones(len(selected_correctors), dtype=float)
-                vkicks = initial_vkick * np.ones(len(selected_correctors), dtype=float)
-                max_osc_h = self.horizontal_excursion_spinbox.value()
-                max_osc_v = self.vertical_excursion_spinbox.value()
-                max_curr_h = self.max_horizontal_current_spinbox.value()
-                max_curr_v = self.max_vertical_current_spinbox.value()
-                Niter = int(self.niter_number.text())
-                print(f"Niter: {Niter}")
-                self.thread = QThread()
-                self.worker = Worker(self.interface, self.S, selected_correctors, selected_bpms, hkicks, vkicks,max_osc_h,max_osc_v, max_curr_h, max_curr_v, Niter,dir_name)
-                self.worker.moveToThread(self.thread)
-
-                self.thread.started.connect(self.worker.run)
-                self.worker.finished.connect(self.thread.quit)
-                self.worker.finished.connect(self.worker.deleteLater)
-                self.thread.finished.connect(self.thread.deleteLater)
-                self.thread.finished.connect(clear_thread)
-                self.worker.plot_data.connect(self.__update_plot)
-                self.worker.progress.connect(self._update_progress)
-                self.thread.start()
-            else:
-                self.__set_status_in_title("[Idle]")
 
         self.thread.finished.connect(clear_thread)
         self.worker.plot_data.connect(self.__update_plot)
@@ -502,19 +474,13 @@ class MainWindow(QMainWindow):
 
     def __update_plot(self, Op, Diff_x, Err_x, Diff_y, Err_y, corrector):
         self.plot_widget.axes.clear()
-        selected_bpms = [item.text() for item in self.bpms_list.selectedItems()]
-        #nbpms=Op['nbpms']
-        l_bpms=len(selected_bpms)
-        scale=np.arange(l_bpms)
-        #bpms_names=Op['names']
-        self.plot_widget.axes.errorbar(scale, Diff_x, yerr=Err_x, lw=2, capsize=5, capthick=2, label="X")
-        self.plot_widget.axes.errorbar(scale, Diff_y, yerr=Err_y, lw=2, capsize=5, capthick=2, label="Y")
+        self.plot_widget.axes.errorbar(range(Op['nbpms']), Diff_x, yerr=Err_x, lw=2, capsize=5, capthick=2, label="X")
+        self.plot_widget.axes.errorbar(range(Op['nbpms']), Diff_y, yerr=Err_y, lw=2, capsize=5, capthick=2, label="Y")
         self.plot_widget.axes.legend(loc='upper left')
-        self.plot_widget.axes.set_xticks(scale)
-        self.plot_widget.axes.set_xticklabels(selected_bpms,rotation=90,fontsize=8)
+        self.plot_widget.axes.set_xlabel('Bpm [#]')
         self.plot_widget.axes.set_ylabel('Orbit [mm]')
         self.plot_widget.axes.set_title(f"Corrector '{corrector}'")
-        self.plot_widget.axes.grid(color='#EEEEEE')
+        self.plot_widget.axes.grid()
         self.plot_widget.draw()
         self.plot_widget.repaint()
 
@@ -526,36 +492,39 @@ class MainWindow(QMainWindow):
             return
         self.working_directory_input.setText(folder)
 
+if __name__ == "__main__":
+    ## MAIN
+    app = QApplication(sys.argv)
 
-## MAIN
-app = QApplication(sys.argv)
+    ## Select interface
+    #from SelectInterface import InterfaceSelectionDialog
+    import SelectInterface
+    #dialog = InterfaceSelectionDialog()
+    dialog = SelectInterface.choose_acc_and_interface()
+    # if dialog.exec():
+    #     print(f"Selected interface: {dialog.selected_interface_name}")
+    #     I = dialog.selected_interface
+    # else:
+    #     print("Selection cancelled.")
+    #     sys.exit(1)
+    I=dialog
+    project_name=I.get_name()
+    print(f"Selected interface: {project_name}")
 
-## Select interface
-#from SelectInterface import InterfaceSelectionDialog
-import SelectInterface
-#dialog = InterfaceSelectionDialog()
-dialog = SelectInterface.choose_acc_and_interface()
-if dialog is None:
-    print("Selection cancelled.")
-    sys.exit(1)
+    ## Prepare project space
+    #project_name = dialog.selected_interface_name
+    time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dir_name = f"~/flight-simulator-data/{project_name}_{time_str}"
+    dir_name = os.path.expanduser(os.path.expandvars(dir_name))
 
-# if dialog.exec():
-#     print(f"Selected interface: {dialog.selected_interface_name}")
-#     I = dialog.selected_interface
-# else:
-#     print("Selection cancelled.")
-#     sys.exit(1)
-I=dialog
-project_name=I.get_name()
-print(f"Selected interface: {project_name}")
+    ## Main Window
+    window = MainWindow(interface=I, dir_name=dir_name)
+    window.show()
+    sys.exit(app.exec())
 
-## Prepare project space
-#project_name = dialog.selected_interface_name
-time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-dir_name = f"~/flight-simulator-data/{project_name}_{time_str}"
-dir_name = os.path.expanduser(os.path.expandvars(dir_name))
+    if dialog is None:
+        print("Selection cancelled.")
+        sys.exit(1)
 
-## Main Window
-window = MainWindow(interface=I, dir_name=dir_name)
-window.show()
-sys.exit(app.exec())
+    
+

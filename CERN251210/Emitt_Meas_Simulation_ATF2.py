@@ -4,7 +4,7 @@ import RF_Track as rft
 import matplotlib.pyplot as plt
 
 class Emitt_Meas_Simulation:
-    def __init__(self, filename='Ext_ATF2/ATF2_EXT_FF_v5.2.twiss'):
+    def __init__(self, filename='Interfaces/ATF2/Ext_ATF2/ATF2_EXT_FF_v5.2.twiss'):
         self.Pref=1.2999999e3
         self.filename=filename
         self.lattice = rft.Lattice(filename)

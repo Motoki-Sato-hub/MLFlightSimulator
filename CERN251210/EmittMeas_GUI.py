@@ -28,7 +28,7 @@ class EmittMeasGUI(QMainWindow,Emitt_Meas_Simulation):
         self._lattice_s=[]
         self._lattice_sigma_x=[]
         self._lattice_sigma_y=[]
-        self.L=
+        #self.L=
 
         self._setup_canvases()
         #self.chosen_interface = chosen_interface

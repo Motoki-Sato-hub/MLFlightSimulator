@@ -12,7 +12,8 @@ class InterfaceATF2_Ext_RFTrack():
 
     def __init__(self, population=2e10, jitter=0.0, bpm_resolution=0.0, nsamples=1):
         self.log = print
-        self.lattice = rft.Lattice('Interfaces/ATF2//Ext_ATF2/ATF2_EXT_FF_v5.2.twiss')
+        self.twiss_path = 'Interfaces/ATF2/Ext_ATF2/ATF2_EXT_FF_v5.2.twiss'
+        self.lattice = rft.Lattice(self.twiss_path)
         self.lattice.set_bpm_resolution(bpm_resolution)
         for s in self.lattice['*OTR*']:
             screen = rft.Screen()
@@ -30,6 +31,8 @@ class InterfaceATF2_Ext_RFTrack():
         self.nsamples = nsamples
         self.__setup_beam0()
         self.__track_bunch()
+        self.dfs_test_energy = 0.98
+        self.wfs_test_charge = 0.90
 
         
         self.knobs = KnobSystem(self.lattice, p_ref=-self.Pref)
@@ -117,9 +120,9 @@ class InterfaceATF2_Ext_RFTrack():
         Nparticles = 10000 # number of macroparticles
         self.B0 = rft.Bunch6d_QR(rft.electronmass, self.population, -1, self.Pref, T, Nparticles)
         
-    def __setup_beam1(self,scale):
+    def __setup_beam1(self):
         # Beam for DFS - Reduced energy
-        Pref= scale * self.Pref
+        Pref= self.dfs_test_energy * self.Pref
         #Pref = 0.98 * self.Pref # 98% of nominal energy
         T = rft.Bunch6d_twiss()
         T.emitt_x = 5.2 # mm.mrad normalised emittance
@@ -133,9 +136,9 @@ class InterfaceATF2_Ext_RFTrack():
         Nparticles = 10000 # number of macroparticles
         self.B0 = rft.Bunch6d_QR(rft.electronmass, self.population, -1, Pref, T, Nparticles)
 
-    def __setup_beam2(self,scale):
+    def __setup_beam2(self):
         # Beam for WFS - Reduced bunch charge
-        population= scale * self.population
+        population= self.wfs_test_charge * self.population
         #population = 0.90 * self.population # 90% of nominal charge
         T = rft.Bunch6d_twiss()
         T.emitt_x = 5.2 # mm.mrad normalised emittance
@@ -175,7 +178,7 @@ class InterfaceATF2_Ext_RFTrack():
             self._needs_tracking = False
 
     def change_energy(self, grad=None, **kwargs):
-        self.__setup_beam1(grad)
+        self.__setup_beam1()
         self.__track_bunch()
 
     def reset_energy(self, grad=1,**kwargs):
@@ -183,7 +186,7 @@ class InterfaceATF2_Ext_RFTrack():
         self.__track_bunch()
 
     def change_intensity(self, grad=None, **kwargs): #reduced charge
-        self.__setup_beam2(grad)
+        self.__setup_beam2()
         self.__track_bunch()
 
     def reset_intensity(self, grad=1,**kwargs):
@@ -356,7 +359,7 @@ class InterfaceATF2_Ext_RFTrack():
         y0 = np.mean(bpms0["y"], axis=0)
 
         # Reduced energy
-        self.__setup_beam1(0.98)
+        self.__setup_beam1()
         self.__track_bunch()
         bpms1 = self.get_bpms()
         x1 = np.mean(bpms1["x"], axis=0)
@@ -396,16 +399,16 @@ class InterfaceATF2_Ext_RFTrack():
                 y = elem.get_offsets()[0][1] #mm
                 z = elem.get_offsets()[0][2] #mm
                 r = elem.get_offsets()[0][3] #rad
-                elem.set_offsets(x + dx *1e-6, y + dy*1e-6, z, r + dr*1e-3, 0 , 0)
+                elem.set_offsets(x*1e-3 + dx *1e-6, y*1e-3 + dy*1e-6, z*1e-3, r + dr*1e-6, 0 , 0)
             else:
-                elem.set_offsets(dx *1e-6, dy*1e-6, 0, dr*1e-3, 0 , 0)
+                elem.set_offsets(dx *1e-6, dy*1e-6, 0, dr*1e-6, 0 , 0)
 
         for bpm in bpms:
             if add == True:
                 x = bpm.get_offsets()[0][0] #mm
                 y = bpm.get_offsets()[0][1] #mm
                 z = bpm.get_offsets()[0][2] #mm
-                bpm.set_offsets(x + dx *1e-6, y + dy*1e-6, z)
+                bpm.set_offsets(x*1e-3 + dx *1e-6, y*1e-3 + dy*1e-6, z*1e-3)
             else:
                 bpm.set_offsets(dx *1e-6, dy*1e-6, 0)
 
@@ -459,22 +462,12 @@ class InterfaceATF2_Ext_RFTrack():
         self._build_lattice()
 
     def get_ipbsm_state(self):
-        """
-        IPBSM 状態を取得:
-        - modulation M
-        - angle mode [deg]
-        - sigma_y [m] （ipbsm_calc.sigmay_from_modulation により計算）
-        """
-        # トラッキング
         self.__track_bunch()
-        # IPの bunch 取得
         B1_IP = self.lattice['IP'].get_bunch()
 
-        # フェーズスペース取り出し
         ps = B1_IP.get_phase_space('%x %xp %y %yp %dt %P')
         y_positions = ps[:, 2] * 1e-3  # mm→m
 
-        # IPBSM計算
         degMode, ModIPBSM, SigIPBSM = ipbsm_calc.FuncIPBSMbeamsize(y_positions)
 
         return {

@@ -966,7 +966,7 @@ class MainWindow(QMainWindow):
 
         try:
             self.__update_qf1qd0_state()
-            self.__refresh_ipbsm_state()
+            #self.__refresh_ipbsm_state()
         except Exception as e:
             print(f"Failed to update IPBSM/QF1FF/QD0FF state on startup: {e}")
 

@@ -15,19 +15,15 @@ from SaveOrLoad_BBA import SaveOrLoad_BBA
 from DFS_WFS_Correction_BBA import DFS_WFS_Correction_BBA
 from ChangeBpmsWeights_BBA import ChangeBpmsWeights_BBA
 
+import matplotlib.pyplot as plt
+
+
 class Machine(Enum):
     ATF2_DR = "ATF2_DR"
     ATF2_EXT = "ATF2_Ext"
     ATF2_LINAC = "ATF2_Linac"
     ATF2_DR_RFT = "ATF2_DR_RFT"
     ATF2_EXT_RFT = "ATF2_Ext_RFT"
-
-@dataclass()
-class MachineSettings:
-    energy: str
-    intensity: str
-    reset_e: str
-    reset_ch: str
 
 class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
     def __init__(self, interface, dir_name):
@@ -50,6 +46,8 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
         self._setup_canvases()
         self._populate_lists()
         self._procs=[]
+        self.load_correctors_button.clicked.connect(self._load_correctors)
+        self.load_bpms_button.clicked.connect(self._load_bpms)
         self.radio_buttons=[self.mode_orbit,self.mode_dispersion, self.mode_wakefield]
         self.pushButton_log.clicked.connect(self._show_console_log)
         self.session_database_3.setText(dir_name)
@@ -65,52 +63,12 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
             self.pushButton_11.clicked.connect(self.load_session_settings)
 
         self.modes= [ 'Orbit', 'Dispersion', 'Wakefield']
-#
-        self._machine_settings={
-            Machine.ATF2_DR: MachineSettings(
-                energy="delta_freq=5",
-                intensity="laserintensity=0.15",
-                reset_e="delta_freq=0",
-                reset_ch="laserintensity=0.1",
-            ),
-            Machine.ATF2_EXT: MachineSettings(
-                energy="delta_freq=-2",
-                intensity="laserintensity=0.15",
-                reset_e="delta_freq=0",
-                reset_ch="laserintensity=0.1",
-            ),
-            Machine.ATF2_LINAC: MachineSettings(
-                energy="rel_phase=5.0",
-                intensity="laserintensity=0.15",
-                reset_e="rel_phase=0.0",
-                reset_ch="laserintensity=0.1",
-            ),
-            Machine.ATF2_DR_RFT: MachineSettings(
-                energy="grad=0.98",
-                intensity="grad=0.90",
-                reset_e="grad=0",
-                reset_ch="grad=0",
-            ),
-            Machine.ATF2_EXT_RFT: MachineSettings(
-                energy="grad=0.98",
-                intensity="grad=0.90",
-                reset_e="grad=0",
-                reset_ch="grad=0",
-            ),
-        }
-
         self._running = False
         self.appropriate_settings_energy=None
         self.appropriate_settings_intensity=None
         self.appropriate_settings_reset_e=None
         self.appropriate_settings_reset_ch=None
         interface_name=interface.get_name()
-        machine=Machine(interface_name)
-        settings=self._machine_settings[machine]
-        self.appropriate_settings_energy=settings.energy
-        self.appropriate_settings_intensity=settings.intensity
-        self.appropriate_settings_reset_e=settings.reset_e
-        self.appropriate_settings_reset_ch=settings.reset_ch
         self.start_button.clicked.connect(self._on_start_click)
         self.stop_button.clicked.connect(self._stop_correction)
         self.corrs = self.S.get_correctors()["names"]
@@ -121,10 +79,6 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
         self.lineEdit_4.setText("0.001")
         self.lineEdit_5.setText("10")
         self.lineEdit_6.setText("0.4")
-        self.dfs_reset_3.setText(self.appropriate_settings_reset_e)
-        self.dfs_change_3.setText(self.appropriate_settings_energy)
-        self.wfs_reset_3.setText(self.appropriate_settings_reset_ch)
-        self.wfs_change_3.setText(self.appropriate_settings_intensity)
         self.compute_response_matrix_button.clicked.connect(self._display_response_matrix)
 
         correctors = self.interface.get_correctors()
@@ -167,22 +121,6 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
         else:
             self._step = True
 
-    def _read_all_parameters(self,text):
-        text = text.strip()
-        params = {}
-        for p in text.split(","):
-            p = p.strip()
-            if not p:
-                continue
-            k,v = p.split("=",1)
-            k = k.strip()
-            v = v.strip()
-            try:
-                params[k] = float(v)
-            except ValueError:
-                raise ValueError(f"Not a number encountered in {p}")
-        return params
-
     def _expand_data_path(self,path):
         home=os.path.expanduser("~")
         if path.startswith(home+os.sep): #the character used by the operating system to separate pathname components
@@ -211,7 +149,7 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
         self.disp_fig, self.disp_canvas,self.disp_ax = install(self.plot_widget_4)
         self.wake_fig, self.wake_canvas, self.wake_ax = install(self.plot_widget_5)
 
-    def _plot_series(self, ax, canvas, values_x,values_y, title=None,ylabel="[mm]"):
+    def _plot_series(self, ax, canvas, values_x,values_y, vals,title=None,ylabel="[mm]"):
         if canvas is None or ax is None:
             return
         ax.clear()
@@ -219,6 +157,8 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
             ax.plot(range(1, len(values_x) + 1), values_x, marker="o",color='red',label="x")
         if values_y:
             ax.plot(range(1, len(values_y) + 1), values_y, marker="o",color='blue',label="y")
+        if vals:
+            ax.plot(range(1, len(vals) + 1), vals, linestyle="dashed",color='black',label="combined norm")
         if values_x or values_y:
             ax.legend(fontsize=7)
         if title is not None:
@@ -303,22 +243,6 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
         gain = getf("lineEdit_6", 0.4)
         return orbit_w, disp_w, wake_w, rcond, iters, gain
 
-    def _read_reset_intensity(self):
-        text = self.wfs_reset_3.text()
-        return self._read_all_parameters(text)
-
-    def _read_change_intensity(self):
-        text = self.wfs_change_3.text()
-        return self._read_all_parameters(text)
-
-    def _read_change_energy(self):
-        text = self.dfs_change_3.text()
-        return self._read_all_parameters(text)
-
-    def _read_reset_energy(self):
-        text = self.dfs_reset_3.text()
-        return self._read_all_parameters(text)
-
     def _start_correction(self):
         try:
             print("Starting correction...")
@@ -336,16 +260,8 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
 
             self.setWindowTitle("BBA_GUI - [Correction running]")
 
-            # DR_freq = 714e3; # 714 MHz in kHz
-            # DR_momentum_compaction = 2.1e-3
+            target_disp_x, target_disp_y = self.interface.get_target_dispersion(bpms)
 
-            # dP_P = -deltafreq / DR_freq / DR_momentum_compaction
-            # if self._machine_settings==Machine.ATF2_LINAC:
-            #     cont
-            # grad = self._read_change_energy()
-            # dP_P = grad - 1
-
-            # TO DO target_disp_x, target_disp_y = self._get_dispersion_from_twiss_file()
             max_curr_h = self.max_horizontal_current_spinbox.value() # gauss * m
             max_curr_v = self.max_vertical_current_spinbox.value() # gauss * m
 
@@ -354,12 +270,16 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
                     return val
                 return max(-max_val, min(val, max_val))
 
+            plt.ion()
+
             for it in range(iters):
                 if self._cancel:
                     break
                 self._step = False
+
                 # nominal
                 print("Measuring orbit")
+
                 self.log("Measuring orbit")
                 self.S.pull(self.interface)
                 print('State::pull done')
@@ -375,31 +295,33 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
                 if w2>0:
                     print("Measuring dispersion")
                     self.log("Measuring dispersion")
-                    dfs_params_change = self._read_change_energy()
-                    dfs_params_reset = self._read_reset_energy()
-                    self.interface.change_energy(**dfs_params_change)
+                    dP_P = self.interface.change_energy()
                     self.S.pull(self.interface)
-                    self.interface.reset_energy(**dfs_params_reset)
+                    self.interface.reset_energy()
                     O1 = self.S.get_orbit(bpms)
                     O1x = O1['x'].reshape(-1, 1)
                     O1y = O1['y'].reshape(-1, 1)
+                    Dx = np.array([1e3 * dx * dP_P for dx in target_disp_x]).reshape(-1,1)
+                    Dy = np.array([1e3 * dy * dP_P for dy in target_disp_y]).reshape(-1,1)
+                    plt.clf()
+                    plt.plot(Dx, label='nominal')
                 else:
                     O1x=O1y=None
+                    Dx=Dy=None
 
                 # wfs
                 if w3>0:
                     print("Measuring wakefield")
                     self.log("Measuring wakefield")
-                    wfs_params_change = self._read_change_intensity()
-                    wfs_params_reset = self._read_reset_intensity()
-                    self.interface.change_intensity(**wfs_params_change)
+                    self.interface.change_intensity()
                     self.S.pull(self.interface)
-                    self.interface.reset_intensity(**wfs_params_reset)
+                    self.interface.reset_intensity()
                     O2 = self.S.get_orbit(bpms)
                     O2x = O2['x'].reshape(-1, 1)
                     O2y = O2['y'].reshape(-1, 1)
                 else:
                     O2x=O2y=None
+
                 Bx=[]
                 By=[]
                 if w1>0:
@@ -408,19 +330,20 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
 
                 print(Bx[-1].shape)
                 if w2>0 and O1x is not None:
-                    Bx.append(wgt_dfs*(O1x-O0x))
-                    By.append(wgt_dfs*(O1y-O0y))
+                    plt.plot((O1x-O0x), label='measured')
+                    plt.show()
+
+                    Bx.append(wgt_dfs*((O1x-O0x) - Dx))
+                    By.append(wgt_dfs*((O1y-O0y) - Dy))
 
                 print(Bx[-1].shape)
                 if w3>0 and O2x is not None:
                     By.append(wgt_wfs*(O2y-O0y))
                     Bx.append(wgt_wfs*(O2x-O0x))
 
-                print(Bx[-1].shape)
                 Bx=np.vstack(Bx)
                 By=np.vstack(By)
 
-                print(' AAAA ')
                 Axx[np.isnan(Axx)] = 0
                 Ayy[np.isnan(Ayy)] = 0
                 Axx[np.isnan(Bx.ravel()),:] =0
@@ -447,12 +370,17 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
                 vals = np.array(vals_x + vals_y)
                 self.interface.vary_correctors(Cx + Cy, vals)
 
+                print(f'vals = {vals}')
+                print(f'Cx = {Cx}')
+                print(f'Cy = {Cy}')
+
                 def filtering_norm_x(Ox,Bx):
                     Ox[np.isnan(Ox)] = 0
                     #Oy[np.isnan(Oy)] = 0
                     Bx[np.isnan(Bx)] = 0
                     #By[np.isnan(By)] = 0
                     return float(np.linalg.norm(Ox - Bx))
+
                 def filtering_norm_y(Oy,By):
                     #Ox[np.isnan(Ox)] = 0
                     Oy[np.isnan(Oy)] = 0
@@ -460,26 +388,24 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
                     By[np.isnan(By)] = 0
                     return float(np.linalg.norm(Oy - By))
 
-                print(' AAAA1 ')
                 if w1>0:
                     self._hist_orbit_x.append(filtering_norm_x(O0x,B0x))
                     self._hist_orbit_y.append(filtering_norm_y(O0y,B0y))
                     self._hist_orbit.append(filtering_norm_x(O0x,B0x) + filtering_norm_y(O0y,B0y))
 
-                print(' AAAA2 ')
                 if w2>0 and O1x is not None:
-                    self._hist_disp_x.append(filtering_norm_x(O0x,O1x))
-                    self._hist_disp_y.append(filtering_norm_y(O0y,O1y))
-                    self._hist_disp.append(filtering_norm_x(O0x,O1x) + filtering_norm_y(O0y,O1y))
-                print(' AAAA3 ')
+                    self._hist_disp_x.append(filtering_norm_x(O0x,O1x-Dx))
+                    self._hist_disp_y.append(filtering_norm_y(O0y,O1y-Dy))
+                    self._hist_disp.append(filtering_norm_x(O0x,O1x-Dx) + filtering_norm_y(O0y,O1y-Dy))
+
                 if w3>0 and O2x is not None:
                     self._hist_wake_x.append(filtering_norm_x(O0x,O2x))
                     self._hist_wake_y.append(filtering_norm_y(O0y,O2y))
                     self._hist_wake.append(filtering_norm_x(O0x,O2x) + filtering_norm_y(O0y,O2y))
 
-                self._plot_series(ax=self.traj_ax, canvas=self.traj_canvas, values_x=self._hist_orbit_x,values_y=self._hist_orbit_y , title=None,ylabel="[mm]")
-                self._plot_series(ax=self.disp_ax,canvas= self.disp_canvas, values_x= self._hist_disp_x,values_y=self._hist_disp_y ,title=None,ylabel="[mm]")
-                self._plot_series(ax=self.wake_ax, canvas=self.wake_canvas, values_x=self._hist_wake_x, values_y=self._hist_wake_y ,title=None,ylabel="[mm]")
+                self._plot_series(ax=self.traj_ax, canvas=self.traj_canvas, values_x=self._hist_orbit_x,values_y=self._hist_orbit_y, vals=self._hist_orbit, title=None,ylabel="[mm]")
+                self._plot_series(ax=self.disp_ax,canvas= self.disp_canvas, values_x= self._hist_disp_x,values_y=self._hist_disp_y ,vals=self._hist_disp,title=None,ylabel="[mm]")
+                self._plot_series(ax=self.wake_ax, canvas=self.wake_canvas, values_x=self._hist_wake_x, values_y=self._hist_wake_y ,vals=self._hist_wake,title=None,ylabel="[mm]")
                 QApplication.processEvents()
 
             self.setWindowTitle("BBA_GUI")
@@ -519,9 +445,9 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
         self._hist_disp_x.clear(),self._hist_disp_y.clear()
         self._hist_wake_x.clear(),self._hist_wake_y.clear()
         self._hist_orbit.clear(),self._hist_disp.clear(),self._hist_wake.clear()
-        self._plot_series(self.traj_ax, self.traj_canvas, values_x=[], values_y=[],title=None,ylabel="[mm]")
-        self._plot_series(self.disp_ax, self.disp_canvas, values_x=[],values_y=[], title=None,ylabel="[mm]")
-        self._plot_series(self.wake_ax, self.wake_canvas, values_x=[],values_y=[], title=None,ylabel="[mm]")
+        self._plot_series(self.traj_ax, self.traj_canvas, values_x=[], values_y=[],vals=[],title=None,ylabel="[mm]")
+        self._plot_series(self.disp_ax, self.disp_canvas, values_x=[],values_y=[],vals=[], title=None,ylabel="[mm]")
+        self._plot_series(self.wake_ax, self.wake_canvas, values_x=[],values_y=[], vals=[],title=None,ylabel="[mm]")
 
     def handling(self, app_name,cwd=None, args=None):
         try:
@@ -570,26 +496,24 @@ class MainWindow(QMainWindow, SaveOrLoad_BBA, DFS_WFS_Correction_BBA):
             data_dir=wakefield_dir
         self.handling('ComputeResponseMatrix_GUI.py', cwd=data_dir,args=[data_dir])
 
-    if __name__ == "__main__":
-        app = QApplication(sys.argv)
-        import SelectInterface
-        dialog = SelectInterface.choose_acc_and_interface()
-        if dialog is None:
-            print("Selection cancelled.")
-            sys.exit(1)
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    import SelectInterface
+    dialog = SelectInterface.choose_acc_and_interface()
+    if dialog is None:
+        print("Selection cancelled.")
+        sys.exit(1)
 
-        I=dialog
-        project_name=I.get_name()
-        print(f"Selected interface: {project_name}")
-        time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        dir_name = f"~/flight-simulator-data/BBA_{I.get_name()}_{time_str}_session_settings"
-        dir_name = os.path.expanduser(os.path.expandvars(dir_name))
-        w = MainWindow(interface=I, dir_name=dir_name)
+    I=dialog
+    project_name=I.get_name()
+    print(f"Selected interface: {project_name}")
+    time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dir_name = f"~/flight-simulator-data/BBA_{I.get_name()}_{time_str}_session_settings"
+    dir_name = os.path.expanduser(os.path.expandvars(dir_name))
+    w = MainWindow(interface=I, dir_name=dir_name)
 
-        if hasattr(I, "log_messages"):
-            I.log_messages(w.log)
+    if hasattr(I, "log_messages"):
+        I.log_messages(w.log)
 
-
-        w.show()
-        sys.exit(app.exec())
-
+    w.show()
+    sys.exit(app.exec())

@@ -100,7 +100,7 @@ class InterfaceSelectionDialog(QDialog):
                 case 'InterfaceATF2_Ext':
                     from Interfaces.ATF2.InterfaceATF2_Ext import InterfaceATF2_Ext
                     globals()['InterfaceATF2_Ext'] = InterfaceATF2_Ext
-                    self.selected_interface = InterfaceATF2_Ext(nsamples=1)
+                    self.selected_interface = InterfaceATF2_Ext(nsamples=10)
 
                 case 'InterfaceATF2_Linac':
                     from Interfaces.ATF2.InterfaceATF2_Linac import InterfaceATF2_Linac
@@ -110,18 +110,18 @@ class InterfaceSelectionDialog(QDialog):
                 case 'InterfaceATF2_DR_RFTrack':
                     from Interfaces.ATF2.InterfaceATF2_DR_RFTrack import InterfaceATF2_DR_RFTrack
                     globals()['InterfaceATF2_DR_RFTrack'] = InterfaceATF2_DR_RFTrack
-                    self.selected_interface = InterfaceATF2_DR_RFTrack(jitter=0.0, bpm_resolution=0.00, nsamples=1)
+                    self.selected_interface = InterfaceATF2_DR_RFTrack(jitter=0.0, bpm_resolution=0.0, nsamples=1)
+                    self.selected_interface.align_everything()
+                    self.selected_interface.misalign_quadrupoles()
+                    self.selected_interface.misalign_bpms()
 
                 case 'InterfaceATF2_Ext_RFTrack':
                     from Interfaces.ATF2.InterfaceATF2_Ext_RFTrack import InterfaceATF2_Ext_RFTrack
                     globals()['InterfaceATF2_Ext_RFTrack'] = InterfaceATF2_Ext_RFTrack
-                    self.selected_interface = InterfaceATF2_Ext_RFTrack(jitter=0.0, bpm_resolution=0.00, nsamples=1)
-
-                    #TESTS:
-
+                    self.selected_interface = InterfaceATF2_Ext_RFTrack(jitter=0.2, bpm_resolution=0.1)
                     self.selected_interface.align_everything()
-                    #self.selected_interface.misalign_quadrupoles()
-                    #self.selected_interface.misalign_bpms()
+                    self.selected_interface.misalign_quadrupoles()
+                    self.selected_interface.misalign_bpms()
 
 
         elif self.selected_acc == 'CLEAR':
