@@ -222,7 +222,7 @@ class InterfaceATF2_Ext:
     
     def get_bpms(self):
         print('Reading bpms...')
-        p = PV('LINAC:monitors')
+        p = PV('ATF2:monitors')
         x, y, tmit = [], [], []
         for sample in range(self.nsamples):
             print(f'Sample = {sample}')
