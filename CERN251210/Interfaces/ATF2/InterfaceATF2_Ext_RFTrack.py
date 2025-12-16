@@ -14,6 +14,7 @@ class InterfaceATF2_Ext_RFTrack():
         self.log = print
         self.twiss_path = 'Interfaces/ATF2/Ext_ATF2/ATF2_EXT_FF_v5.2.twiss'
         self.lattice = rft.Lattice(self.twiss_path)
+        self.bpm_resolution = bpm_resolution
         self.lattice.set_bpm_resolution(bpm_resolution)
         for s in self.lattice['*OTR*']:
             screen = rft.Screen()

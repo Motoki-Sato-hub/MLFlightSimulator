@@ -113,9 +113,9 @@ class DispersionPlotWidget(FigureCanvas):
 
         # baseline
         if eta_x0 is not None and len(eta_x0) == len(s_m):
-            self.ax_h.plot(s_m, eta_x0, color="0.7", linestyle="--", label="H baseline")
+            self.ax_h.plot(s_m, eta_x0, color="0.7", linestyle="--", label="H Target Dispersion")
         if eta_y0 is not None and len(eta_y0) == len(s_m):
-            self.ax_v.plot(s_m, eta_y0, color="0.7", linestyle="--", label="V baseline")
+            self.ax_v.plot(s_m, eta_y0, color="0.7", linestyle="--", label="V Target Dispersion")
 
         self.ax_h.plot(s_m, eta_x, marker="o", label="H current")
         self.ax_v.plot(s_m, eta_y, marker="o", label="V current")
@@ -188,6 +188,7 @@ class Worker(QObject):
 
         self.Rx = None
         self.Ry = None
+
 
     def run(self):
         I = self.interface
@@ -706,6 +707,22 @@ class MainWindow(QMainWindow):
         )
         self.disp_measure_button.setStyleSheet("background-color: green; color: white;")
         dc_button_layout.addWidget(self.disp_measure_button)
+
+        self._target_disp_eta_x = None
+        self._target_disp_eta_y = None
+        try:
+            tx, ty = self.interface.get_target_dispersion(self.interface.bpms)
+            self._target_disp_eta_x = np.asarray(tx, dtype=float)*1e3  # to mm
+            self._target_disp_eta_y = np.asarray(ty, dtype=float)*1e3  # to mm
+            print("Target dispersion loaded.")
+
+        except Exception as e:
+            print(f"Failed to load target dispersion: {e}")
+            self._target_disp_eta_x = None
+            self._target_disp_eta_y = None
+        
+        
+
 
         # QF6X knob (STEP +/-)
         qf_layout = QHBoxLayout()
@@ -1489,18 +1506,29 @@ class MainWindow(QMainWindow):
             print(f"get_bpms_S not available, fallback to index: {e}")
             s = np.arange(eta_x.size, dtype=float)
 
-        if self._misalign_baseline_eta_x is None:
-            self._misalign_baseline_eta_x = eta_x.copy()
-            self._misalign_baseline_eta_y = eta_y.copy()
-            print("Baseline dispersion updated.")
+            # --- baseline: use target dispersion (Twiss), not first measurement ---
+        eta_x0 = None
+        eta_y0 = None
+
+        if self._target_disp_eta_x is not None and self._target_disp_eta_y is not None:
+            if self._target_disp_eta_x.size == eta_x.size and self._target_disp_eta_y.size == eta_y.size:
+                eta_x0 = self._target_disp_eta_x
+                eta_y0 = self._target_disp_eta_y
+            else:
+                print(
+                    f"Target dispersion size mismatch: "
+                    f"target=({self._target_disp_eta_x.size},{self._target_disp_eta_y.size}) "
+                    f"meas=({eta_x.size},{eta_y.size}). Baseline disabled."
+                )
 
         self.disp_plot.update_dispersion(
             s,
             eta_x,
             eta_y,
-            self._misalign_baseline_eta_x,
-            self._misalign_baseline_eta_y,
+            eta_x0,
+            eta_y0,
         )
+
 
 
     def __update_qf6x_strength_label(self):
@@ -1598,12 +1626,8 @@ class MainWindow(QMainWindow):
             print(f"reset_lattice is not available: {e}")
             return
 
-        # baseline dispersion をリセット
-        self._misalign_baseline_eta_x = None
-        self._misalign_baseline_eta_y = None
         print(
-            "Lattice reset to original Twiss. Baseline dispersion will be re-measured "
-            "on next dispersion measurement."
+            "Lattice reset to original Twiss."
         )
 
     # ---------------------------------------------------------
