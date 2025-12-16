@@ -1619,7 +1619,9 @@ class MainWindow(QMainWindow):
         step = self.sum_step_spinbox.value() * sign
         print(f"GUI: apply_sum_knob(k={step})")
         try:
-            self.S.apply_sum_knob(self.interface, step)
+            self.S.apply_qmag_current(self.interface,"QS1X", step)
+            self.S.apply_qmag_current(self.interface,"QS2X", step)
+
         except Exception as e:
             print(f"apply_sum_knob is not available: {e}")
             return
