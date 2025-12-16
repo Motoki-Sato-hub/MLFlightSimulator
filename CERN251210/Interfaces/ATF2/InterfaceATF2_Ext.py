@@ -275,7 +275,8 @@ class InterfaceATF2_Ext:
             print('Error: len(names) != len(currents) in apply_qmag_current(names, currents)') 
         for qmag, current in zip(names, currents):
             pv_des = PV(f'{qmag}:currentWrite')
-            pv_des.put(current)
+            curr_val = pv_des.get()
+            pv_des.put(curr_val + current)
         time.sleep(1)
 
 
