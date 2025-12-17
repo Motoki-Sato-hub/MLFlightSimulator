@@ -109,13 +109,16 @@ class State:
     def measure_orbit(self, interface, bpm_names=None):
         self.pull(interface)
         orbit = self.get_orbit(bpm_names)
+
         try:
-            s = np.asarray(interface.get_bpms_S(), dtype=float)
-        except Exception:
+            bpms = interface.get_bpms()
+            s = np.asarray(bpms["S"], dtype=float)
+        except Exception as e:
+            print("WARNING: failed to get BPM S from interface:", e)
             s = np.arange(len(orbit["x"]), dtype=float)
 
         self.orbit = {
-            "s": s,
+            "S": s,
             **orbit,
             "timestamp": self.timestamp,
         }
