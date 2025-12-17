@@ -76,10 +76,10 @@ class State:
         stdx = np.std(bpms['x'],axis=0) # mm #standard deviation
         stdy = np.std(bpms['y'],axis=0) # mm
         tmit = np.mean(bpms['tmit'],axis=0)
-        faulty = (x == 0.0) & (y == 0.0)
+        faulty = np.isnan(x) | np.isnan(y)
         x[faulty] = np.nan
         y[faulty] = np.nan
-        orbit = { "names": names, "x": x, "y": y, "stdx": stdx, "stdy": stdy, "tmit": tmit, "faulty": faulty, "nbpms": len(names) }
+        orbit = { "names": names, "x": x, "y": y, "stdx": stdx, "stdy": stdy, "tmit": tmit, "faulty": faulty, "nbpms": len(bpms["names"]) }
         return orbit
 
 
@@ -123,27 +123,6 @@ class State:
     
     def get_element_S(self, interface, name):
         return interface.get_element_S(name)
-    
-    def get_bpms_S(self, interface):
-        return interface.get_bpms_S()
-    
-    def measure_dispersion(self, interface, bpm_names=None):
-        result = interface.measure_dispersion()
-        if result is None:
-            return None
-
-        try:
-            s = np.asarray(interface.get_bpms_S(), dtype=float)
-        except Exception:
-            s = np.arange(len(result["eta_x"]), dtype=float)
-
-        self.dispersion = {
-            "s": s,
-            "eta_x": np.asarray(result["eta_x"]),
-            "eta_y": np.asarray(result["eta_y"]),
-            "timestamp": self.timestamp,
-        }
-        return self.dispersion
     
     def init_knobs(self, interface):
         self.linear_knobs = {k: 0.0 for k in interface.get_linear_knob_names()}

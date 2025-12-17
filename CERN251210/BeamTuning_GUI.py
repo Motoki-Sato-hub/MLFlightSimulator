@@ -46,25 +46,69 @@ class OrbitPlotWidget(FigureCanvas):
 
     def update_orbit(
         self,
-        s_m: np.ndarray,
-        x_mm: np.ndarray,
-        y_mm: np.ndarray,
-        corr_S: float | None = None,
-        corr_name: str | None = None,
+        s_m,
+        x_mm,
+        y_mm,
+        faulty=None,
+        corr_S=None,
+        corr_name=None,
     ):
+        # --- 型と shape を強制 ---
+        s_m = np.asarray(s_m, dtype=float).reshape(-1)
+        x_mm = np.asarray(x_mm, dtype=float).reshape(-1)
+        y_mm = np.asarray(y_mm, dtype=float).reshape(-1)
+
+        n = min(len(s_m), len(x_mm), len(y_mm))
+        s_m = s_m[:n]
+        x_mm = x_mm[:n]
+        y_mm = y_mm[:n]
+
         self.ax_x.clear()
         self.ax_y.clear()
+
         self.ax_x.plot(s_m, x_mm, marker="o")
         self.ax_y.plot(s_m, y_mm, marker="o")
+
         self.ax_x.set_ylabel("X [mm]")
         self.ax_y.set_ylabel("Y [mm]")
         self.ax_y.set_xlabel("S [m]")
 
-        if corr_S is not None and corr_name is not None:
-            if corr_name[:2].upper() == "ZH":
-                self.ax_x.axvline(corr_S, color="pink", alpha=0.3)
-            elif corr_name[:2].upper() == "ZV":
-                self.ax_y.axvline(corr_S, color="pink", alpha=0.3)
+        # --- faulty BPM を × で表示 ---
+        if faulty is not None:
+            faulty = np.asarray(faulty, dtype=bool).reshape(-1)
+            faulty = faulty[:n]
+
+            if faulty.any():
+                sf = s_m[faulty]
+                zeros = np.zeros(sf.size)
+
+                self.ax_x.plot(
+                    sf, zeros,
+                    linestyle="None",
+                    marker="x",
+                    color="red",
+                    markersize=8,
+                    label="faulty BPM",
+                )
+                self.ax_y.plot(
+                    sf, zeros,
+                    linestyle="None",
+                    marker="x",
+                    color="red",
+                    markersize=8,
+                )
+
+        # --- corrector position ---
+        if corr_S is not None and np.isfinite(corr_S):
+            if corr_name is not None:
+                if corr_name[:2].upper() == "ZH":
+                    self.ax_x.axvline(float(corr_S), color="pink", alpha=0.3)
+                elif corr_name[:2].upper() == "ZV":
+                    self.ax_y.axvline(float(corr_S), color="pink", alpha=0.3)
+
+        self.draw()
+        self.flush_events()
+
 
         def _autoscale_with_min(ax, data, min_half_range):
                 arr = np.asarray(data, dtype=float)
@@ -1328,32 +1372,36 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------
     def __measure_orbit_button_clicked(self):
         self.S.pull(self.interface)
-        bpms = self.S.get_bpms()
-        bpm_list = self.S.get_bpms()['names']
-        x = np.mean(bpms["x"], axis=0)
-        y = np.mean(bpms["y"], axis=0)
-
-        try:
-            s = np.asarray(bpms["S"], dtype=float)
-            if s.size != x.size:
-                raise ValueError("get_bpms_S size mismatch.")
-        except Exception as e:
-            print(f"get_bpms_S not available, fallback to index: {e}")
-            s = np.arange(x.size, dtype=float)
-
-        self._last_orbit_s = s
-        self._last_orbit_x = x
-        self._last_orbit_y = y
-
         corr_name = self.manual_corr_combobox.currentText()
-        corr_S = None
         try:
             corr_S = float(self.interface.get_element_S(corr_name))
         except Exception as e:
             print(f"get_element_S not available for {corr_name}: {e}")
             corr_S = None
 
-        self.orbit_plot.update_orbit(s, x, y, corr_S=corr_S, corr_name=corr_name)
+        orbit = self.S.get_orbit()
+
+        s = np.asarray(self.S.bpms["S"], dtype=float)
+        x = orbit["x"]
+        y = orbit["y"]
+        faulty = orbit["faulty"]
+
+        # --- キャッシュ ---
+        self._last_orbit_s = s
+        self._last_orbit_x = x
+        self._last_orbit_y = y
+        self._last_orbit_faulty = faulty
+
+        self.orbit_plot.update_orbit(
+            s,
+            x,
+            y,
+            faulty=faulty,
+            corr_S=corr_S,
+            corr_name=corr_name,
+        )
+
+
 
     def __where_button_clicked(self):
         if self._last_orbit_s is None:
@@ -1361,7 +1409,6 @@ class MainWindow(QMainWindow):
             return
 
         corr_name = self.manual_corr_combobox.currentText()
-        corr_S = None
         try:
             corr_S = float(self.S.get_element_S(self.interface, corr_name))
         except Exception as e:
@@ -1372,9 +1419,11 @@ class MainWindow(QMainWindow):
             self._last_orbit_s,
             self._last_orbit_x,
             self._last_orbit_y,
+            faulty=self._last_orbit_faulty,
             corr_S=corr_S,
             corr_name=corr_name,
         )
+
 
     def __get_suggest_working_directory(self) -> str:
 
