@@ -285,29 +285,32 @@ class InterfaceATF2_Ext:
         return correctors
     
     def get_bpms(self):
-        print("Reading ATF2 BPMs...")
-
         p = PV("ATF2:monitors")
 
         x_list, y_list, tmit_list = [], [], []
+        s_ref = None
 
         for sample in range(self.nsamples):
             raw = np.asarray(p.get(), dtype=float)
-
-            # --- reshape: 1 BPM = 10 values ---
             a = raw.reshape((-1, 10))
 
-            # --- select BPM rows ---
-            bpm = a[self.bpm_indexes]
+            bpm_indexes = np.array(
+                sorted(i for i in self.MONITOR_INDEX_TO_NAME.keys() if i < a.shape[0]),
+                dtype=int
+            )
+
+            bpm = a[bpm_indexes]
 
             status = bpm[:, 0]
             x = bpm[:, 1]
             y = bpm[:, 2]
             tmit = bpm[:, 3]
-            s = bpm[:, 4]   # ← 今回は返さないが確認用に重要
+            s = bpm[:, 4]
+
+            if s_ref is None:
+                s_ref = s.copy()   # S は不変量として固定
 
             valid = (status == 1)
-
             x = np.where(valid, x, np.nan)
             y = np.where(valid, y, np.nan)
             tmit = np.where(valid, tmit, 0.0)
@@ -318,19 +321,16 @@ class InterfaceATF2_Ext:
 
             time.sleep(1)
 
-        names = [self.MONITOR_INDEX_TO_NAME[k] for k in self.bpm_indexes]
-
-        x = np.vstack(x_list) / 1e3   # mm
-        y = np.vstack(y_list) / 1e3   # mm
-        tmit = np.vstack(tmit_list)
+        names = [self.MONITOR_INDEX_TO_NAME[i] for i in bpm_indexes]
 
         return {
             "names": names,
-            "x": x,
-            "y": y,
-            "tmit": tmit,
-            "S": s
-        }
+            "x": np.vstack(x_list) / 1e3,
+            "y": np.vstack(y_list) / 1e3,
+            "tmit": np.vstack(tmit_list),
+            "S": s_ref,
+    }
+
 
     def push(self, names, corr_vals):
         if type(corr_vals) == float:
