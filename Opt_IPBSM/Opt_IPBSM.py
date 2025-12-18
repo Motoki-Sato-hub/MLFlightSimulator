@@ -441,6 +441,7 @@ class GaussianFitResult:
     residual_rms: float
     n_points: int
 
+
 def _design_matrix_quadratic(X: np.ndarray, mode: str) -> Tuple[np.ndarray, List[Tuple[str, Tuple[int,int]]]]:
     """
     Build design matrix for quadratic regression of ln(y):

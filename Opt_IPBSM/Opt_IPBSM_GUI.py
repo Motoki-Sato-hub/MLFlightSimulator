@@ -342,8 +342,8 @@ class MainWindow(QMainWindow):
 
     def _make_controller(self, cfg: OptimizerConfig):
         if self.ctrl_box.currentText() == "machine":
-            from Opt_IPBSM import EPICSIPBSMController
-            return EPICSIPBSMController(mode_name=cfg.mode_name, interface=self.interface)
+            from Opt_IPBSM import IPBSMInterface
+            return IPBSMInterface()
         correlated = (cfg.mode_name != "linear")
         spec = make_random_spec(
             params=cfg.params,
@@ -385,8 +385,8 @@ class MainWindow(QMainWindow):
         if self.ctrl_box.currentText() != "machine":
             return
         try:
-            from Opt_IPBSM import EPICSIPBSMController
-            ctrl = EPICSIPBSMController()
+            from Opt_IPBSM import IPBSMInterface
+            ctrl = IPBSMInterface()
             y, yerr = ctrl.get_ipbsm()
             QMessageBox.information(self, "IPBSM", f"modulation={y:.6f}\nerr={yerr:.6f}")
         except Exception as e:
