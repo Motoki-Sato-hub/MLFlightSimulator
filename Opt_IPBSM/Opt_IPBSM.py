@@ -758,6 +758,11 @@ class OptimizerConfig:
     init_sigma: Dict[str, float]
     meas_sigma: float = 0.01
     expected_y_max: Optional[float] = None  # e.g. 0.8 for synthetic test
+    stop_modulation: Optional[float] = 0.65  # stop immediately if y >= this (GF/BO/LBO)
+    knob_step: float = 0.01              # quantization step for ALL knob params (linear/nonlinear)
+    gf_weight_peak: float = 1.0          # GF policy weight: peak-seeking (use fitted mu)
+    gf_weight_refine: float = 1.0        # GF policy weight: localization / precision improvement
+    gf_jitter_frac: float = 0.25         # GF peak-seeking jitter as fraction of sigma
     max_steps: int = 60
     stop_mu_sigma: float = 0.02       # stop when bootstrap std(mu_i) < this for all dims
     stop_y_sigma: float = 0.01        # stop when predicted peak y std small (not strict)
@@ -842,6 +847,10 @@ class Optimizer:
         with open(cfg_path, "w", encoding="utf-8") as f:
             json.dump(asdict(self.cfg), f, indent=2, ensure_ascii=False)
 
+    def _quantize_knob(self, v: float) -> float:
+        step = float(self.cfg.knob_step)
+        return round(v / step) * step
+
     def _log_step(self, rec: StepRecord):
         self.records.append(rec)
         csv_path = self.out_dir / "measurements.csv"
@@ -850,7 +859,15 @@ class Optimizer:
             w = csv.writer(f)
             if is_new:
                 w.writerow(["step", "t_iso"] + self.cfg.params + ["modulation", "mod_err", "chosen_by"])
-            w.writerow([rec.step, rec.t_iso] + [rec.x[p] for p in self.cfg.params] + [rec.y, rec.y_err, rec.chosen_by])
+
+            x_q = [self._quantize_knob(rec.x[p]) for p in self.cfg.params]
+
+            w.writerow(
+                [rec.step, rec.t_iso]
+                + x_q
+                + [rec.y, rec.y_err, rec.chosen_by]
+            )
+
 
     def _emit(self, step: int, info: Dict):
         if self.progress_cb:
@@ -865,8 +882,13 @@ class Optimizer:
         return {p: float(x_vec[i]) for i, p in enumerate(self.cfg.params)}
 
     def _measure_at(self, x_vec: np.ndarray, chosen_by: str) -> Tuple[float, float]:
+        # Quantize ALL knobs to hardware-like step (e.g. 0.01) and clamp to bounds
+        lo, hi = self._bounds_arrays()
+        step = max(1e-12, float(getattr(self.cfg, 'knob_step', 0.01)))
+        xq = np.round(np.asarray(x_vec, float) / step) * step
+        xq = clamp(xq, lo, hi)
         # Apply
-        self.controller.apply_knobs(self._x_dict(x_vec))
+        self.controller.apply_knobs(self._x_dict(xq))
         # Measure
         y, yerr = self.controller.get_ipbsm()
         return float(y), float(yerr)
@@ -933,33 +955,71 @@ class Optimizer:
             return False
         return bool(np.all(mu_std < self.cfg.stop_mu_sigma))
 
+    def _stop_by_modulation(self, y: float) -> bool:
+        thr = getattr(self.cfg, 'stop_modulation', None)
+        if thr is None:
+            return False
+        try:
+            return bool(np.isfinite(y) and float(y) >= float(thr))
+        except Exception:
+            return False
+
     def _propose_next_GF(self, fit: GaussianFitResult, boot: Dict) -> np.ndarray:
         lo, hi = self._bounds_arrays()
         d = len(self.cfg.params)
 
-        mu = np.asarray(boot["mu_mean"], float)
-        cov = np.asarray(boot["cov_mean"], float)
+        # Peak estimate (parametric): use fitted/bootstrapped mu
+        mu = np.asarray(boot.get("mu_mean", fit.mu), float)
+
+        # Covariance estimate
+        if "cov_mean" in boot:
+            cov = np.asarray(boot["cov_mean"], float)
+        else:
+            cov = np.asarray(fit.cov, float)
         cov = 0.5 * (cov + cov.T)
 
-
-        # Otherwise, probe around mu along coordinate axes to reduce uncertainty.
         sig = np.sqrt(np.maximum(np.diag(cov), 1e-12))
-        # Round-robin axis selection
-        # MU-focused probing: pick axis where mu uncertainty is largest
-        sig = np.sqrt(np.maximum(np.diag(cov), 1e-12))
-        mu_std = np.asarray(boot.get("mu_std", sig), float)  # bootstrap std of mu
-        axis = int(np.argmax(mu_std))
 
-        # alternate +/-
-        direction = 1.0 if (len(self.X) % 2 == 0) else -1.0
+        # --- choose GF policy by weights ---
+        w_peak = float(getattr(self.cfg, "gf_weight_peak", 1.0))
+        w_ref  = float(getattr(self.cfg, "gf_weight_refine", 1.0))
+        w_peak = max(0.0, w_peak)
+        w_ref  = max(0.0, w_ref)
+        w_sum = w_peak + w_ref
+        p_peak = (w_peak / w_sum) if w_sum > 0 else 0.0
 
-        # r ≈ 1σ is most informative for mu (for Gaussian with additive noise)
-        step = self.cfg.probe_scale * sig[axis]
-        x = mu.copy()
-        x[axis] = x[axis] + direction * step
+        if self.rng.random() < p_peak:
+            # Policy A: peak-seeking (target mu, with small jitter to avoid duplicates)
+            jitter_frac = float(getattr(self.cfg, "gf_jitter_frac", 0.25))
+            jitter_frac = max(0.0, jitter_frac)
+            x = mu.copy()
+            x = x + self.rng.normal(size=d) * (jitter_frac * sig)
+            x = clamp(x, lo, hi)
+            return x
+
+        # Policy B: localization / precision improvement
+        # Prefer probing along the principal axis of covariance (most uncertain direction).
+        try:
+            ev, evec = np.linalg.eigh(cov)
+            axis = int(np.argmax(ev))
+            v = evec[:, axis]
+            v = v / (np.linalg.norm(v) + 1e-12)
+            scale = float(np.sqrt(max(ev[axis], 1e-12)))
+            direction = 1.0 if (len(self.X) % 2 == 0) else -1.0
+            step = float(self.cfg.probe_scale) * scale
+            x = mu + direction * step * v
+        except Exception:
+            # Fallback: coordinate axis with largest bootstrap mu uncertainty if available
+            mu_std = np.asarray(boot.get("mu_std", sig), float)
+            axis = int(np.argmax(mu_std))
+            direction = 1.0 if (len(self.X) % 2 == 0) else -1.0
+            step = float(self.cfg.probe_scale) * float(sig[axis])
+            x = mu.copy()
+            x[axis] = x[axis] + direction * step
+
         x = clamp(x, lo, hi)
 
-        # If duplicates, random jitter
+        # If duplicates, random point
         if len(self.X) > 0:
             X = np.asarray(self.X, float)
             if np.min(np.linalg.norm(X - x.reshape(1, -1), axis=1)) < 1e-6:
@@ -1078,6 +1138,10 @@ class Optimizer:
                 "y": y,
                 "y_err": yerr,
             })
+            if self._stop_by_modulation(y):
+                self.stop_flag.request_stop()
+                self._emit(len(self.X), {"phase": "stop", "reason": "modulation_threshold_hit", "y": y})
+                break
 
         # random fill
         while len(self.X) < self.cfg.n_init_random and len(self.X) < self.cfg.max_steps:
@@ -1103,6 +1167,10 @@ class Optimizer:
                 "y": y,
                 "y_err": yerr,
             })
+            if self._stop_by_modulation(y):
+                self.stop_flag.request_stop()
+                self._emit(len(self.X), {"phase": "stop", "reason": "modulation_threshold_hit", "y": y})
+                break
 
         # Main loop# Main loop
         while len(self.X) < self.cfg.max_steps and (not self.stop_flag.is_stopped()):
@@ -1113,10 +1181,12 @@ class Optimizer:
             fit: GaussianFitResult = fit_pack["fit"]
             boot = fit_pack["boot"]
 
-            # Stop check by bootstrap mu precision
-            if self._stop_by_precision(boot):
-                self._emit(len(self.X), {"phase": "stop", "reason": "mu_precision_reached"})
-                break
+            # Stop check by bootstrap mu precision (GF only)
+            if self.cfg.method.upper() == "GF":
+                if self._stop_by_precision(boot):
+                    self.stop_flag.request_stop()
+                    self._emit(len(self.X), {"phase": "stop", "reason": "mu_precision_reached"})
+                    break
 
             # Propose next
             if self.cfg.method.upper() == "GF":
@@ -1160,6 +1230,10 @@ class Optimizer:
                 "y_err": yerr,
                 "best_y": float(np.max(self.y)),
             })
+            if self._stop_by_modulation(y):
+                self.stop_flag.request_stop()
+                self._emit(len(self.X), {"phase": "stop", "reason": "modulation_threshold_hit", "y": y})
+                break
 
         # Final fit
         final_pack = self._fit_and_bootstrap()
@@ -1179,7 +1253,8 @@ class Optimizer:
             "fit_cov": final_fit.cov,
             "boot_mu_mean": final_boot["mu_mean"].tolist(),
             "boot_mu_std": final_boot["mu_std"].tolist(),
-        }
+            "fit_mu_err": final_boot["mu_std"][0],
+            "fit_sigma_err": 0.5 * final_boot["cov_diag_std"][0] / max(1e-12, np.sqrt(final_boot["cov_diag_mean"][0])),}
 
         with open(self.out_dir / "result.json", "w", encoding="utf-8") as f:
             json.dump(out, f, indent=2, ensure_ascii=False)
@@ -1197,6 +1272,7 @@ def plot_results(
     y: np.ndarray,
     yerr: np.ndarray,
     fit: GaussianFitResult,
+    boot: Optional[Dict] = None,
     save_prefix: str = "",
 ) -> List[Path]:
     """
@@ -1251,14 +1327,40 @@ def plot_results(
         ax.set_ylabel("IPBSM modulation")
         ax.set_title(f"1D slice fit: {p}")
 
-        # Fit parameter text
+        # --- Fit parameter text (with uncertainties, 1D case) ---
         sigma_i = math.sqrt(max(cov[i, i], 1e-12))
-        txt = f"mu[{p}]={mu[i]:+.4f}\n" \
-              f"sigma[{p}]={sigma_i:.4f}\n" \
-              f"amp={amp:.4f}\n" \
-              f"resid_rms(ln)={fit.residual_rms:.4f}\n" \
-              f"n={fit.n_points}"
-        ax.text(0.98, 0.98, txt, transform=ax.transAxes, va="top", ha="right")
+
+        # --- uncertainties from bootstrap ---
+        mu_err = None
+        sigma_err = None
+
+        if boot is not None:
+            # μ uncertainty (most important)
+            mu_err = float(boot["mu_std"][i])
+
+            # σ uncertainty (from variance uncertainty, approximate)
+            var_mean = float(boot["cov_diag_mean"][i])
+            var_std  = float(boot["cov_diag_std"][i])
+            sigma_err = 0.5 * var_std / max(1e-12, math.sqrt(var_mean))
+
+        # --- text formatting ---
+        txt_lines = [
+            f"mu[{p}] = {mu[i]:+.4f}" + (f" ± {mu_err:.4f}" if mu_err is not None else ""),
+            f"sigma[{p}] = {sigma_i:.4f}" + (f" ± {sigma_err:.4f}" if sigma_err is not None else ""),
+            f"amp = {amp:.4f}",
+            f"resid_rms(ln) = {fit.residual_rms:.4f}",
+            f"n = {fit.n_points}",
+        ]
+
+        txt = "\n".join(txt_lines)
+
+        ax.text(
+            0.98, 0.98,
+            txt,
+            transform=ax.transAxes,
+            va="top",
+            ha="right",
+        )
 
         name = f"{save_prefix}1D_{p}.png" if save_prefix else f"1D_{p}.png"
         path = out_dir / name

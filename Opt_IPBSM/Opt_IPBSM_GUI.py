@@ -101,7 +101,8 @@ class MainWindow(QMainWindow):
         self.method_box.addItems(["GF", "BO", "LBO"])
         top.addWidget(self.method_box)
 
-        top.addWidget(QLabel("Acq (BO/LBO):"))
+        self.top_acq_lbl = QLabel("Acq (BO/LBO):")
+        top.addWidget(self.top_acq_lbl)
         self.acq_box = QComboBox()
         self.acq_box.addItems(["UCB", "EI"])
         top.addWidget(self.acq_box)
@@ -146,6 +147,7 @@ class MainWindow(QMainWindow):
         cfg_group = QGroupBox("Optimization Settings")
         left.addWidget(cfg_group)
         cfg_form = QFormLayout(cfg_group)
+        self.cfg_form = cfg_form
 
         self.max_steps = QSpinBox(); self.max_steps.setRange(1, 9999); self.max_steps.setValue(60)
         self.n_init = QSpinBox(); self.n_init.setRange(1, 999); self.n_init.setValue(8)
@@ -159,6 +161,9 @@ class MainWindow(QMainWindow):
         self.meas_sigma.setValue(0.01)
 
         self.stop_mu_sigma = QDoubleSpinBox(); self.stop_mu_sigma.setRange(1e-6, 1.0); self.stop_mu_sigma.setDecimals(4); self.stop_mu_sigma.setValue(0.02)
+        self.stop_modulation = QDoubleSpinBox(); self.stop_modulation.setRange(0.0, 1.0); self.stop_modulation.setDecimals(4); self.stop_modulation.setValue(0.65)
+        self.gf_w_peak = QDoubleSpinBox(); self.gf_w_peak.setRange(0.0, 100.0); self.gf_w_peak.setDecimals(2); self.gf_w_peak.setValue(1.0)
+        self.gf_w_refine = QDoubleSpinBox(); self.gf_w_refine.setRange(0.0, 100.0); self.gf_w_refine.setDecimals(2); self.gf_w_refine.setValue(1.0)
         self.seed = QSpinBox(); self.seed.setRange(0, 2**31-1); self.seed.setValue(123)
         self.n_boot = QSpinBox(); self.n_boot.setRange(0, 500); self.n_boot.setValue(60)
         self.n_cand = QSpinBox(); self.n_cand.setRange(100, 50000); self.n_cand.setValue(6000)
@@ -178,6 +183,9 @@ class MainWindow(QMainWindow):
         cfg_form.addRow("bounds +/-", self.bounds_range)
         cfg_form.addRow("meas_sigma (scatter & errorbar)", self.meas_sigma)
         cfg_form.addRow("stop_mu_sigma", self.stop_mu_sigma)
+        cfg_form.addRow("stop_modulation (>= to stop)", self.stop_modulation)
+        cfg_form.addRow("GF weight: peak", self.gf_w_peak)
+        cfg_form.addRow("GF weight: refine", self.gf_w_refine)
         cfg_form.addRow("seed", self.seed)
         cfg_form.addRow("n_bootstrap", self.n_boot)
         cfg_form.addRow("n_candidates", self.n_cand)
@@ -240,6 +248,8 @@ class MainWindow(QMainWindow):
         # Signals
         # =========================
         self.mode_box.currentTextChanged.connect(self._rebuild_sigma_inputs)
+        self.method_box.currentTextChanged.connect(self._update_method_visibility)
+        self._update_method_visibility()
         self.ctrl_box.currentTextChanged.connect(self._update_ctrl_buttons)
         self.run_btn.clicked.connect(self._on_run)
         self.stop_btn.clicked.connect(self._on_stop)
@@ -273,6 +283,36 @@ class MainWindow(QMainWindow):
             self.sigma_boxes[p] = box
             self.sigma_form.addRow(f"σ0[{p}]", box)
 
+    def _set_form_row_visible(self, form: QFormLayout, field: QWidget, visible: bool) -> None:
+        lab = form.labelForField(field)
+        if lab is not None:
+            lab.setVisible(visible)
+        field.setVisible(visible)
+
+    def _update_method_visibility(self):
+        m = self.method_box.currentText().upper()
+
+        # GF-only
+        is_gf = (m == "GF")
+        self._set_form_row_visible(self.cfg_form, self.stop_mu_sigma, is_gf)
+        self._set_form_row_visible(self.cfg_form, self.probe_scale, is_gf)
+        self._set_form_row_visible(self.cfg_form, self.gf_w_peak, is_gf)
+        self._set_form_row_visible(self.cfg_form, self.gf_w_refine, is_gf)
+
+        # BO/LBO-only
+        is_bo = (m in ("BO", "LBO"))
+        self.acq_box.setVisible(is_bo)
+        # if acq label exists, hide it too
+        if hasattr(self, "top_acq_lbl"):
+            self.top_acq_lbl.setVisible(is_bo)
+
+        self._set_form_row_visible(self.cfg_form, self.n_cand, is_bo)
+        self._set_form_row_visible(self.cfg_form, self.ucb_beta, is_bo)
+        self._set_form_row_visible(self.cfg_form, self.ei_xi, is_bo)
+        self._set_form_row_visible(self.cfg_form, self.gp_len, is_bo)
+        self._set_form_row_visible(self.cfg_form, self.gp_sig, is_bo)
+        self._set_form_row_visible(self.cfg_form, self.gp_noise, is_bo)
+
     def _collect_config(self) -> OptimizerConfig:
         params = self._params()
         rng = float(self.bounds_range.value())
@@ -290,6 +330,11 @@ class MainWindow(QMainWindow):
             init_sigma=init_sigma,
             meas_sigma=float(self.meas_sigma.value()),
             expected_y_max=expected_y_max,
+            stop_modulation=float(self.stop_modulation.value()),
+            knob_step=0.01,
+            gf_weight_peak=float(self.gf_w_peak.value()),
+            gf_weight_refine=float(self.gf_w_refine.value()),
+            gf_jitter_frac=0.25,
             max_steps=int(self.max_steps.value()),
             stop_mu_sigma=float(self.stop_mu_sigma.value()),
             seed=int(self.seed.value()),
@@ -483,8 +528,36 @@ class MainWindow(QMainWindow):
         cfg = self._collect_config()
         mode_fit = "diag" if cfg.mode_name == "linear" else "full"
         fit = fit_gaussian_from_samples(X, y, mode=mode_fit, ridge=cfg.ridge_fit, y_cap=cfg.expected_y_max)
+        # ---- load bootstrap info from result.json ----
+        boot = None
+        result_path = out_dir / "result.json"
+        if result_path.exists():
+            with open(result_path, "r", encoding="utf-8") as f:
+                res = json.load(f)
 
-        saved = plot_results(cfg, out_dir, X, y, yerr, fit)
+            # plot_results が期待する形式に合わせる
+            if "boot_mu_std" in res:
+                boot = {
+                    "mu_std": res.get("boot_mu_std"),
+                    "cov_diag_mean": [
+                        res["fit_cov"][i][i] for i in range(len(res["fit_cov"]))
+                    ] if "fit_cov" in res else None,
+                    "cov_diag_std": [
+                        2.0 * res.get("fit_sigma_err", 0.0)
+                        * np.sqrt(res["fit_cov"][i][i])
+                        for i in range(len(res["fit_cov"]))
+                    ] if "fit_cov" in res else None,
+                }
+
+        saved = plot_results(
+            cfg=cfg,
+            out_dir=out_dir,
+            X=X,
+            y=y,
+            yerr=yerr,
+            fit=fit,     # ← さっき計算した fit
+            boot=boot,   # ← result.json から読んだもの
+        )
         self._populate_gallery([p for p in saved if str(p).lower().endswith(".png")])
 
         best_x = out.get("best_x", {})
@@ -548,6 +621,7 @@ class MainWindow(QMainWindow):
 
     def on_get_ipbsm_clicked(self):
         self.get_btn.setEnabled(False)
+        self.log_lbl.setText("IPBSM: measuring...")
 
         self.w_ipbsm = GetIPBSMWorker(self.interface, timeout=600)
         self.w_ipbsm.done.connect(self._on_ipbsm_ok)
