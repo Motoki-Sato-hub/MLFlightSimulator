@@ -428,7 +428,7 @@ class MainWindow(QMainWindow):
     # ----------------------------
     # actions
     # ----------------------------
-    """""
+
     def _on_get_ipbsm(self):
         if self.ctrl_box.currentText() != "machine":
             return
@@ -437,7 +437,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "IPBSM", f"modulation={y:.6f}\nerr={yerr:.6f}")
         except Exception as e:
             QMessageBox.warning(self, "IPBSM", f"Failed: {e}")
-    """""
+
 
 
     def _on_run(self):
