@@ -119,7 +119,6 @@ class IPBSMInterface:
         self.pv_end = PV("TEST:ENDai")
 
         self.datafile = "/atf/data/ipbsm/knob/knob_fringe_result_v2.dat"
-
                 # (dx,dy) in [μm], from LinearKnob_20240617.dat
         self.linear_matrix = {
             "Ax": {"SD0FF": (-116.5, 0), "SF1FF": (-35.2, 0), "SD4FF": (-37.8, 0), "SF5FF": (0, 0), "SF6FF": (-623.4, 0)},  
@@ -144,7 +143,7 @@ class IPBSMInterface:
             "Spare": {"SK1FF": 0.0, "SK2FF": 0.0, "SK3FF": 0.0, "SK4FF": 0.0, "SD0FF": 0.0, "SF1FF": 0.0, "SD4FF": 0.0, "SF5FF": 0.0, "SF6FF": 0.0}
         }
 
-    def get_ipbsm(self, timeout=300):
+    def get_ipbsm(self, timeout=300, file_wait=305.0):
         # 1) trigger
         self.pv_trigger.put(1)
 
@@ -161,11 +160,31 @@ class IPBSMInterface:
         # 3) reset ENDai
         self.pv_end.put(0)
 
-        # 4) read dat
+        # 4) wait for datafile to be updated (mtime check)
+        import os
+        t_deadline = t0 + float(file_wait)
+        while True:
+            try:
+                mtime = os.path.getmtime(self.datafile)
+            except FileNotFoundError:
+                mtime = 0.0
+
+            # mtime が前回より新しければ更新済みとみなす
+            if mtime > float(getattr(self, "_last_mtime", 0.0)):
+                self._last_mtime = mtime
+                break
+
+            if time.time() >= t_deadline:
+                # 更新確認できなくても読む（必要ならここで例外にしても良い）
+                break
+
+            time.sleep(0.1)
+
+        # 5) read dat
         with open(self.datafile, "rb") as f:
             raw = f.read()
 
-        # 5) decode
+        # 6) decode
         res = decode_ipbsm_dat(raw)  # 既存関数前提
 
         modulation = float(res["modulation"])
