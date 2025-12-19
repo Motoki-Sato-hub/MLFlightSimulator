@@ -642,7 +642,7 @@ class MainWindow(QMainWindow):
         print("IPBSM failed:", msg)
         self.log_lbl.setText(f"IPBSM failed: {msg}")
 
-
+"""
 class GetIPBSMWorker(QThread):
     done = pyqtSignal(float, float)   # modulation, error
     fail = pyqtSignal(str)
@@ -658,7 +658,7 @@ class GetIPBSMWorker(QThread):
             self.done.emit(m, e)
         except Exception as ex:
             self.fail.emit(str(ex))
-
+"""
 
 def main():
     app = QApplication([])
