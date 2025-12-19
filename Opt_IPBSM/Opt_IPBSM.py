@@ -318,15 +318,15 @@ class IPBSMInterface:
         dpos = defaultdict(lambda: [0.0, 0.0])
         for knob, k in knob_values.items():
             for mag, (ax, ay) in self.linear_matrix[knob].items():
-                dpos[mag][0] += ax * k
-                dpos[mag][1] += ay * k
+                dpos[mag][0] = ax * k
+                dpos[mag][1] = ay * k
         return {m: (v[0], v[1]) for m, v in dpos.items()}
 
     def _build_nonlinear_deltas(self, knob_values: dict):
         dcur = defaultdict(float)
         for knob, k in knob_values.items():
             for mag, a in self.nonlinear_matrix[knob].items():
-                dcur[mag] += a * k
+                dcur[mag] = a * k
         return dict(dcur)
     
     
