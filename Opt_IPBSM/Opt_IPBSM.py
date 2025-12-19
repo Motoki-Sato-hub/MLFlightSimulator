@@ -178,6 +178,8 @@ class IPBSMInterface:
                 # 更新確認できなくても読む（必要ならここで例外にしても良い）
                 break
 
+            print(f"{mtime}")
+
             time.sleep(0.1)
 
         # 5) read dat
