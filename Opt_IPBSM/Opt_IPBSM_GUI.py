@@ -428,6 +428,7 @@ class MainWindow(QMainWindow):
     # ----------------------------
     # actions
     # ----------------------------
+    """""
     def _on_get_ipbsm(self):
         if self.ctrl_box.currentText() != "machine":
             return
@@ -436,6 +437,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "IPBSM", f"modulation={y:.6f}\nerr={yerr:.6f}")
         except Exception as e:
             QMessageBox.warning(self, "IPBSM", f"Failed: {e}")
+    """""
+
 
     def _on_run(self):
         if self.worker is not None and self.worker.isRunning():
@@ -618,7 +621,7 @@ class MainWindow(QMainWindow):
             if c >= cols:
                 c = 0
                 r += 1
-
+        """
     def on_get_ipbsm_clicked(self):
         self.get_btn.setEnabled(False)
         self.log_lbl.setText("IPBSM: measuring...")
@@ -628,6 +631,8 @@ class MainWindow(QMainWindow):
         self.w_ipbsm.fail.connect(self._on_ipbsm_fail)
         self.w_ipbsm.finished.connect(lambda: self.get_btn.setEnabled(True))
         self.w_ipbsm.start()
+        """
+
 
     def _on_ipbsm_ok(self, m, e):
         print(f"IPBSM modulation={m:.6f}  err={e:.6f}")
