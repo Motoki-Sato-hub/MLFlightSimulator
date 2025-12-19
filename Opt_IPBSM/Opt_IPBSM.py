@@ -923,7 +923,6 @@ class Optimizer:
         xq = clamp(xq, lo, hi)
 
         meas_idx = len(self.X) + 1  # <- これが「今何回目の測定か」
-        time.sleep(meas_idx * 0.05)  
 
         self.controller.apply_knobs(self._x_dict(xq))
         y, yerr = self.controller.get_ipbsm()
