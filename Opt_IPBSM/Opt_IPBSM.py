@@ -163,7 +163,7 @@ class IPBSMInterface:
         # 4) wait for datafile to be updated (mtime check)
         import os
         t_deadline = t0 + float(file_wait)
-        os.scandir('/mnt/atf/data/ipbsm/knob') 
+        os.scandir('/atf/data/ipbsm/knob') 
 
         while True:
             try:
