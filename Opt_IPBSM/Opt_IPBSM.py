@@ -146,7 +146,7 @@ class IPBSMInterface:
         }
         
 
-    def get_ipbsm(self, timeout=300, file_wait=30.0, poll=0.1, trig_pulse=0.05):
+    def get_ipbsm(self, timeout=300, file_wait=330.0, poll=0.1, trig_pulse=0.05):
         with self._ipbsm_lock:
             # A) baseline mtime BEFORE trigger (これが重要)
             try:
@@ -155,30 +155,9 @@ class IPBSMInterface:
                 mtime0 = 0.0
 
             # B) ENDai が 1 のまま張り付いてたら 0 に落としておく（即break防止）
-            try:
-                v = self.pv_end.get()
-                if v is not None and int(v) == 1:
-                    try:
-                        self.pv_end.put(0)
-                    except Exception:
-                        pass
-                    # 少し待つ
-                    t_pre = time.time() + 2.0
-                    while time.time() < t_pre:
-                        vv = self.pv_end.get()
-                        if vv is None or int(vv) == 0:
-                            break
-                        time.sleep(poll)
-            except Exception:
-                pass
 
             # 1) trigger (パルス推奨)
             self.pv_trigger.put(1)
-            time.sleep(trig_pulse)
-            try:
-                self.pv_trigger.put(0)
-            except Exception:
-                pass
 
             # 2) wait ENDai == 1
             t_deadline = time.time() + float(timeout)
@@ -196,8 +175,10 @@ class IPBSMInterface:
             except Exception:
                 pass
 
+            os.scandir('/atf/data/ipbsm/knob')
+
             # 4) wait for datafile updated AFTER this trigger
-            t_deadline = time.time() + float(file_wait)
+            t_deadline = mtime0 + float(file_wait)
             last_print = 0.0
             while True:
                 try:
