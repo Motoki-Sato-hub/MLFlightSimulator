@@ -146,16 +146,22 @@ class IPBSMInterface:
         }
         
 
-    def get_ipbsm(self, timeout=300, file_wait=330.0, poll=0.1, trig_pulse=0.05):
+        def get_ipbsm(self, timeout=300, file_wait=330.0, poll=0.1):
 
-            # B) ENDai が 1 のまま張り付いてたら 0 に落としておく（即break防止）
+            # --- A) trigger前に「直近mtime」を取っておく（これより新しい必要がある） ---
+            try:
+                prev_mtime = os.path.getmtime(self.datafile)
+            except FileNotFoundError:
+                prev_mtime = 0.0
+
+            # --- B) ENDai張り付き対策 ---
             self.pv_end.put(0)
-            time.sleep(0.5)
+            time.sleep(0.2)
 
-            # 1) trigger (パルス推奨)
+            # --- C) trigger ---
             self.pv_trigger.put(1)
 
-            # 2) wait ENDai == 1
+            # --- D) ENDai==1待ち ---
             t_deadline = time.time() + float(timeout)
             while True:
                 v = self.pv_end.get()
@@ -165,18 +171,53 @@ class IPBSMInterface:
                     raise TimeoutError("IPBSM measurement timeout (ENDai never became 1)")
                 time.sleep(poll)
 
+            # ENDai reset
             self.pv_end.put(0)
-            time.sleep(1)
-            
-            os.scandir('/atf/data/ipbsm/knob')
-            # 5) read dat
+
+            # --- E) datafileの更新(mtime)を待つ ---
+            t_file_deadline = time.time() + float(file_wait)
+
+            # キャッシュ対策のつもりのscandirは「呼ぶなら」iterateしないと効果薄いです
+            # (それでもOS/NAS側の性質で効かないことはあります)
+            try:
+                for _ in os.scandir(os.path.dirname(self.datafile)):
+                    break
+            except Exception:
+                pass
+
+            last_seen_mtime = prev_mtime
+            while True:
+                try:
+                    mtime = os.path.getmtime(self.datafile)
+                except FileNotFoundError:
+                    mtime = 0.0
+
+                last_seen_mtime = mtime
+
+                if mtime > prev_mtime:
+                    break
+
+                if time.time() >= t_file_deadline:
+                    raise TimeoutError(
+                        f"IPBSM datafile not updated: prev_mtime={prev_mtime}, last_mtime={last_seen_mtime}"
+                    )
+
+                time.sleep(poll)
+
+            # --- F) read dat ---
             with open(self.datafile, "rb") as f:
                 raw = f.read()
 
             res = decode_ipbsm_dat(raw)
             modulation = float(res["modulation"])
             error = abs(float(res["error"]))
+
+            # --- G) ここで「今回のmtime」をログに出せる ---
+            # GUIログに出したいなら print ではなく progress/emit 経由にする
+            print(f"[IPBSM] datafile mtime={last_seen_mtime} (prev={prev_mtime}) mod={modulation} err={error}")
+
             return modulation, error
+
 
 
         
