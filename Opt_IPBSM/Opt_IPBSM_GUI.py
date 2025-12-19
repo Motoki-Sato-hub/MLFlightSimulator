@@ -387,8 +387,10 @@ class MainWindow(QMainWindow):
 
     def _make_controller(self, cfg: OptimizerConfig):
         if self.ctrl_box.currentText() == "machine":
-            from Opt_IPBSM import IPBSMInterface
-            return IPBSMInterface()
+            from Opt_IPBSM import IPBSMInterface, EPICSIPBSMController
+            iface = IPBSMInterface()
+            return EPICSIPBSMController(interface=iface, mode_name=cfg.mode_name)
+
         correlated = (cfg.mode_name != "linear")
         spec = make_random_spec(
             params=cfg.params,

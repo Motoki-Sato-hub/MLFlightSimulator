@@ -426,6 +426,28 @@ class IPBSMInterface:
 
             time.sleep(poll)
 
+class EPICSIPBSMController:
+    """
+    Controller wrapper for real machine.
+    Optimizer expects: apply_knobs(dict)->None and get_ipbsm()->(y,yerr)
+    """
+    def __init__(self, interface: IPBSMInterface, mode_name: str = "linear"):
+        self.interface = interface
+        self.mode_name = str(mode_name).lower()
+
+    def apply_knobs(self, knob_values: Dict[str, float]) -> None:
+        # mode_name は GUI のモード選択（linear / nonlinear2 / nonlinear4 など）に合わせる
+        if self.mode_name.startswith("linear"):
+            # knob_values: {"Ay":..., "Ey":..., "Coup2":...} など
+            self.interface.apply_linear_knobs(knob_values)
+        else:
+            # knob_values: {"Y24":..., "Y46":...} or 4D etc
+            self.interface.apply_nonlinear_knobs(knob_values)
+
+    def get_ipbsm(self) -> Tuple[float, float]:
+        return self.interface.get_ipbsm()
+
+
 
 # ----------------------------
 
