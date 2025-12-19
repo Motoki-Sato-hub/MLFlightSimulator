@@ -22,7 +22,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Callable
 
-import time
+import time, threading
 import numpy as np
 from epics import PV
 from epics import caget, caput
@@ -118,6 +118,8 @@ class IPBSMInterface:
         self.pv_trigger = PV("TEST:ai")
         self.pv_end = PV("TEST:ENDai")
 
+        self._ipbsm_lock = threading.Lock()
+
         self.datafile = "/atf/data/ipbsm/knob/knob_fringe_result_v2.dat"
                 # (dx,dy) in [μm], from LinearKnob_20240617.dat
         self.linear_matrix = {
@@ -142,78 +144,88 @@ class IPBSMInterface:
             "Y44": {"SK1FF": 0.037, "SK2FF": 1.614, "SK3FF": -0.458, "SK4FF": -0.186, "SD0FF": 0.0, "SF1FF": 0.0, "SD4FF": 0.0, "SF5FF": 0.0, "SF6FF":  0.0},
             "Spare": {"SK1FF": 0.0, "SK2FF": 0.0, "SK3FF": 0.0, "SK4FF": 0.0, "SD0FF": 0.0, "SF1FF": 0.0, "SD4FF": 0.0, "SF5FF": 0.0, "SF6FF": 0.0}
         }
+        
 
-    def get_ipbsm(self, timeout=300, file_wait=305.0):
-        # 1) trigger
-        self.pv_trigger.put(1)
-
-        # 2) wait ENDai == 1
-        t0 = time.time()
-        while True:
-            v = self.pv_end.get()
-            if v is not None and int(v) == 1:
-                break
-            if time.time() - t0 > timeout:
-                raise TimeoutError("IPBSM measurement timeout")
-            time.sleep(0.1)
-
-        # 3) reset ENDai
-        self.pv_end.put(0)
-
-        # 4) wait for datafile to be updated (mtime check)
-        import os
-        t_deadline = t0 + float(file_wait)
-        os.scandir('/atf/data/ipbsm/knob') 
-
-        while True:
+    def get_ipbsm(self, timeout=300, file_wait=30.0, poll=0.1, trig_pulse=0.05):
+        with self._ipbsm_lock:
+            # A) baseline mtime BEFORE trigger (これが重要)
             try:
-                mtime = os.path.getmtime(self.datafile)
+                mtime0 = os.path.getmtime(self.datafile)
             except FileNotFoundError:
-                mtime = 0.0
+                mtime0 = 0.0
 
-            # mtime が前回より新しければ更新済みとみなす
-            if mtime > float(getattr(self, "_last_mtime", 1.0)):
-                self._last_mtime = mtime
-                break
+            # B) ENDai が 1 のまま張り付いてたら 0 に落としておく（即break防止）
+            try:
+                v = self.pv_end.get()
+                if v is not None and int(v) == 1:
+                    try:
+                        self.pv_end.put(0)
+                    except Exception:
+                        pass
+                    # 少し待つ
+                    t_pre = time.time() + 2.0
+                    while time.time() < t_pre:
+                        vv = self.pv_end.get()
+                        if vv is None or int(vv) == 0:
+                            break
+                        time.sleep(poll)
+            except Exception:
+                pass
 
-            if time.time() >= t_deadline:
-                # 更新確認できなくても読む（必要ならここで例外にしても良い）
-                break
+            # 1) trigger (パルス推奨)
+            self.pv_trigger.put(1)
+            time.sleep(trig_pulse)
+            try:
+                self.pv_trigger.put(0)
+            except Exception:
+                pass
 
-            print(f"{mtime}")
+            # 2) wait ENDai == 1
+            t_deadline = time.time() + float(timeout)
+            while True:
+                v = self.pv_end.get()
+                if v is not None and int(v) == 1:
+                    break
+                if time.time() >= t_deadline:
+                    raise TimeoutError("IPBSM measurement timeout (ENDai never became 1)")
+                time.sleep(poll)
 
-            time.sleep(0.1)
+            # 3) reset ENDai（効くなら）
+            try:
+                self.pv_end.put(0)
+            except Exception:
+                pass
 
+            # 4) wait for datafile updated AFTER this trigger
+            t_deadline = time.time() + float(file_wait)
+            last_print = 0.0
+            while True:
+                try:
+                    mtime = os.path.getmtime(self.datafile)
+                except FileNotFoundError:
+                    mtime = 0.0
 
-        with open(self.datafile, "rb") as f:
-            raw = f.read()
+                if mtime > mtime0:
+                    break
 
-        res = decode_ipbsm_dat(raw) 
+                if time.time() >= t_deadline:
+                    raise TimeoutError(f"Datafile not updated: mtime={mtime} baseline={mtime0}")
 
-        modulation = float(res["modulation"])
-        error = abs(float(res["error"]))
-        return modulation, error
+                # デバッグ表示（1秒に1回だけ）
+                if time.time() - last_print > 1.0:
+                    print(f"[IPBSM] waiting file update: mtime={mtime} baseline={mtime0}", flush=True)
+                    last_print = time.time()
 
-    def vary_magnet_current(self, name, delta,
-                            tol=0.01, timeout=15.0, poll=0.05) -> None:
-        pv_set = PV(f"{name}:currentWrite")
-        pv_rb  = PV(f"{name}:current")
+                time.sleep(poll)
 
-        curr = pv_set.get()
-        if curr is None:
-            raise RuntimeError(f"Failed to read {pv_set.pvname}")
+            # 5) read dat
+            with open(self.datafile, "rb") as f:
+                raw = f.read()
 
-        target = float(curr) + float(delta)
-        pv_set.put(target)
-
-        t0 = time.monotonic()
-        while True:
-            rb = pv_rb.get()
-            if rb is not None and abs(float(rb) - target) <= tol:
-                return
-            if time.monotonic() - t0 > timeout:
-                raise TimeoutError(f"Timeout: {pv_rb.pvname} rb={rb} target={target} tol={tol}")
-            time.sleep(poll)
+            res = decode_ipbsm_dat(raw)
+            modulation = float(res["modulation"])
+            error = abs(float(res["error"]))
+            return modulation, error
 
 
         
@@ -354,8 +366,8 @@ class IPBSMInterface:
                             tol, timeout, poll, settle_dt, use_trim):
         target = {}
         for mag, (dx, dy) in name_to_dxy.items():
-            pv_des_x = f"{mag}:DES:X"
-            pv_des_y = f"{mag}:DES:Y"
+            pv_des_x = f"{mag}:MAG:DES:X"
+            pv_des_y = f"{mag}:MAG:DES:Y"
             x0 = caget(pv_des_x); y0 = caget(pv_des_y)
             if x0 is None or y0 is None:
                 raise RuntimeError(f"DES read failed: {pv_des_x} / {pv_des_y}")
@@ -388,8 +400,8 @@ class IPBSMInterface:
                     if st is None or int(st) != 0:
                         continue
 
-                xm = caget(f"{mag}:X")
-                ym = caget(f"{mag}:Y")
+                xm = caget(f"{mag}:MAG:X")
+                ym = caget(f"{mag}:MAG:Y")
                 if xm is None or ym is None:
                     continue
 
