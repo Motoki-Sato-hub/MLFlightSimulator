@@ -172,29 +172,6 @@ class IPBSMInterface:
                 pass
 
             os.scandir('/atf/data/ipbsm/knob')
-
-            # 4) wait for datafile updated AFTER this trigger
-            t_deadline = mtime0 + float(file_wait)
-            last_print = 0.0
-            while True:
-                try:
-                    mtime = os.path.getmtime(self.datafile)
-                except FileNotFoundError:
-                    mtime = 0.0
-
-                if mtime > mtime0:
-                    break
-
-                if time.time() >= t_deadline:
-                    raise TimeoutError(f"Datafile not updated: mtime={mtime} baseline={mtime0}")
-
-                # デバッグ表示（1秒に1回だけ）
-                if time.time() - last_print > 1.0:
-                    print(f"[IPBSM] waiting file update: mtime={mtime} baseline={mtime0}", flush=True)
-                    last_print = time.time()
-
-                time.sleep(poll)
-
             # 5) read dat
             with open(self.datafile, "rb") as f:
                 raw = f.read()
