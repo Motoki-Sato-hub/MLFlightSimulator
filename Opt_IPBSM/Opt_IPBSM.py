@@ -147,14 +147,10 @@ class IPBSMInterface:
         
 
     def get_ipbsm(self, timeout=300, file_wait=330.0, poll=0.1, trig_pulse=0.05):
-        with self._ipbsm_lock:
-            # A) baseline mtime BEFORE trigger (これが重要)
-            try:
-                mtime0 = os.path.getmtime(self.datafile)
-            except FileNotFoundError:
-                mtime0 = 0.0
 
             # B) ENDai が 1 のまま張り付いてたら 0 に落としておく（即break防止）
+            self.pv_end.put(0)
+            time.sleep(0.5)
 
             # 1) trigger (パルス推奨)
             self.pv_trigger.put(1)
