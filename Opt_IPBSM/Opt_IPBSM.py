@@ -165,12 +165,9 @@ class IPBSMInterface:
                     raise TimeoutError("IPBSM measurement timeout (ENDai never became 1)")
                 time.sleep(poll)
 
-            # 3) reset ENDai（効くなら）
-            try:
-                self.pv_end.put(0)
-            except Exception:
-                pass
-
+            self.pv_end.put(0)
+            time.sleep(1)
+            
             os.scandir('/atf/data/ipbsm/knob')
             # 5) read dat
             with open(self.datafile, "rb") as f:
