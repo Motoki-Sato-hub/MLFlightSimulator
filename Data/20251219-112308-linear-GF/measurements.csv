@@ -1,0 +1,3 @@
+step,t_iso,Ay,Ey,Coup2,modulation,mod_err,chosen_by
+1,2025-12-19T11:23:08,0.0,0.0,0.0,0.30741644970848603,0.01,init_structured
+2,2025-12-19T11:23:08,0.5,0.0,0.0,0.6736123537453509,0.01,init_structured

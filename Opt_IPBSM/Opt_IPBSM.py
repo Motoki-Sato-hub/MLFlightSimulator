@@ -317,7 +317,7 @@ class IPBSMInterface:
     
     def apply_linear_knobs(self, knob_values: dict,
                         tol=15, timeout=30.0, poll=0.05,
-                        settle_dt=0.2, use_trim=True):
+                        settle_dt=0.5, use_trim=True):
         dpos = self._build_linear_deltas(knob_values)
         self._apply_positions_batch(dpos, tol=tol, timeout=timeout,
                                     poll=poll, settle_dt=settle_dt, use_trim=use_trim)
@@ -882,15 +882,21 @@ class Optimizer:
         return {p: float(x_vec[i]) for i, p in enumerate(self.cfg.params)}
 
     def _measure_at(self, x_vec: np.ndarray, chosen_by: str) -> Tuple[float, float]:
-        # Quantize ALL knobs to hardware-like step (e.g. 0.01) and clamp to bounds
+        # Quantize knobs to hardware-like step and clamp
         lo, hi = self._bounds_arrays()
-        step = max(1e-12, float(getattr(self.cfg, 'knob_step', 0.01)))
-        xq = np.round(np.asarray(x_vec, float) / step) * step
+        knob_step = max(1e-12, float(getattr(self.cfg, "knob_step", 0.01)))
+
+        xq = np.round(np.asarray(x_vec, float) / knob_step) * knob_step
         xq = clamp(xq, lo, hi)
-        # Apply
+
+        meas_idx = len(self.X) + 1  # <- これが「今何回目の測定か」
+
         self.controller.apply_knobs(self._x_dict(xq))
-        # Measure
         y, yerr = self.controller.get_ipbsm()
+
+        best = max([float(y)] + [float(v) for v in self.y]) if self.y else float(y)
+        print(f"[MEAS] i={meas_idx} by={chosen_by}   y={float(y):.6f} ± {float(yerr):.6f}  best={best:.6f}")
+
         return float(y), float(yerr)
 
     def _random_point(self) -> np.ndarray:
@@ -950,6 +956,7 @@ class Optimizer:
         return out
 
     def _stop_by_precision(self, boot: Dict) -> bool:
+
         mu_std = np.asarray(boot["mu_std"], float)
         if not np.all(np.isfinite(mu_std)):
             return False
@@ -1184,6 +1191,12 @@ class Optimizer:
             # Stop check by bootstrap mu precision (GF only)
             if self.cfg.method.upper() == "GF":
                 if self._stop_by_precision(boot):
+                    mu_std = np.asarray(boot.get("mu_std", np.full(len(self.cfg.params), np.nan)), float)
+                    print(
+                        f"[STOPCHK] n={len(self.X)} "
+                        f"mu_std={ {p: float(s) for p, s in zip(self.cfg.params, mu_std)} } "
+                        f"stop_mu_sigma={self.cfg.stop_mu_sigma}"
+                    )
                     self.stop_flag.request_stop()
                     self._emit(len(self.X), {"phase": "stop", "reason": "mu_precision_reached"})
                     break

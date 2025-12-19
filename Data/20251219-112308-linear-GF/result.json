@@ -1,0 +1,44 @@
+{
+  "out_dir": "Data/20251219-112308-linear-GF",
+  "n_steps": 2,
+  "best_x": {
+    "Ay": 0.5,
+    "Ey": 0.0,
+    "Coup2": 0.0
+  },
+  "best_y": 0.6736123537453509,
+  "fit_mu": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "fit_cov": [
+    [
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "boot_mu_mean": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "boot_mu_std": [
+    Infinity,
+    Infinity,
+    Infinity
+  ],
+  "fit_mu_err": Infinity,
+  "fit_sigma_err": 0.0
+}
