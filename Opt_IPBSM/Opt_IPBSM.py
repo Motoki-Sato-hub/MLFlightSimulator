@@ -163,6 +163,8 @@ class IPBSMInterface:
         # 4) wait for datafile to be updated (mtime check)
         import os
         t_deadline = t0 + float(file_wait)
+        os.scandir('/mnt/atf/data/ipbsm/knob') 
+
         while True:
             try:
                 mtime = os.path.getmtime(self.datafile)
@@ -170,7 +172,7 @@ class IPBSMInterface:
                 mtime = 0.0
 
             # mtime が前回より新しければ更新済みとみなす
-            if mtime > float(getattr(self, "_last_mtime", 0.0)):
+            if mtime > float(getattr(self, "_last_mtime", 1.0)):
                 self._last_mtime = mtime
                 break
 
@@ -182,12 +184,11 @@ class IPBSMInterface:
 
             time.sleep(0.1)
 
-        # 5) read dat
+
         with open(self.datafile, "rb") as f:
             raw = f.read()
 
-        # 6) decode
-        res = decode_ipbsm_dat(raw)  # 既存関数前提
+        res = decode_ipbsm_dat(raw) 
 
         modulation = float(res["modulation"])
         error = abs(float(res["error"]))
