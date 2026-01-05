@@ -1,0 +1,53 @@
+{
+  "mode_name": "linear",
+  "method": "GF",
+  "acquisition": "UCB",
+  "params": [
+    "Ay",
+    "Ey",
+    "Coup2"
+  ],
+  "bounds": {
+    "Ay": [
+      -2.0,
+      2.0
+    ],
+    "Ey": [
+      -2.0,
+      2.0
+    ],
+    "Coup2": [
+      -2.0,
+      2.0
+    ]
+  },
+  "init_sigma": {
+    "Ay": 0.5,
+    "Ey": 0.5,
+    "Coup2": 0.5
+  },
+  "meas_sigma": 0.01,
+  "expected_y_max": 0.8,
+  "stop_modulation": 0.75,
+  "knob_step": 0.01,
+  "gf_weight_peak": 0.0,
+  "gf_weight_refine": 1.0,
+  "gf_jitter_frac": 0.25,
+  "max_steps": 60,
+  "stop_mu_sigma": 0.05,
+  "stop_y_sigma": 0.01,
+  "seed": 123,
+  "n_init_random": 8,
+  "n_candidates": 6000,
+  "n_bootstrap": 60,
+  "ridge_fit": 0.0001,
+  "gp_length_scale": 1.2,
+  "gp_signal_var": 0.15,
+  "gp_noise_var": 0.0001,
+  "ucb_beta": 2.0,
+  "ei_xi": 0.0,
+  "probe_scale": 1.0,
+  "init_strategy": "structured",
+  "lbo_line_points": 200,
+  "lbo_dir_strategy": "cov_maxvar"
+}

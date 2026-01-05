@@ -621,7 +621,7 @@ class MainWindow(QMainWindow):
             if c >= cols:
                 c = 0
                 r += 1
-        """
+        
     def on_get_ipbsm_clicked(self):
         self.get_btn.setEnabled(False)
         self.log_lbl.setText("IPBSM: measuring...")
@@ -631,7 +631,7 @@ class MainWindow(QMainWindow):
         self.w_ipbsm.fail.connect(self._on_ipbsm_fail)
         self.w_ipbsm.finished.connect(lambda: self.get_btn.setEnabled(True))
         self.w_ipbsm.start()
-        """
+        
 
 
     def _on_ipbsm_ok(self, m, e):
@@ -642,7 +642,7 @@ class MainWindow(QMainWindow):
         print("IPBSM failed:", msg)
         self.log_lbl.setText(f"IPBSM failed: {msg}")
 
-"""
+
 class GetIPBSMWorker(QThread):
     done = pyqtSignal(float, float)   # modulation, error
     fail = pyqtSignal(str)
@@ -658,7 +658,7 @@ class GetIPBSMWorker(QThread):
             self.done.emit(m, e)
         except Exception as ex:
             self.fail.emit(str(ex))
-"""
+
 
 def main():
     app = QApplication([])

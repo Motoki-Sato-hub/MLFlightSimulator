@@ -1,14 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Opt_IPBSM.py
-Core logic for Gaussian-estimation / BO / LBO optimization with:
-- Synthetic (test) controller
-- EPICS (machine) controller stub
-- Logging, stopping, and plotting hooks
-
-Dependencies: numpy, matplotlib
-(Only standard library + numpy + matplotlib required.)
-"""
 
 from __future__ import annotations
 
@@ -146,83 +135,77 @@ class IPBSMInterface:
         }
         
 
-        def get_ipbsm(self, timeout=300, file_wait=330.0, poll=0.1):
+    def get_ipbsm(self, timeout=300, file_wait=330.0, poll=0.1):
 
-            # --- A) trigger前に「直近mtime」を取っておく（これより新しい必要がある） ---
+        # --- A) trigger前に「直近mtime」を取っておく（これより新しい必要がある） ---
+        try:
+            prev_mtime = os.path.getmtime(self.datafile)
+        except FileNotFoundError:
+            prev_mtime = 0.0
+
+        # --- B) ENDai張り付き対策 ---
+        self.pv_end.put(0)
+        time.sleep(0.2)
+
+        # --- C) trigger ---
+        self.pv_trigger.put(1)
+
+        # --- D) ENDai==1待ち ---
+        t_deadline = time.time() + float(timeout)
+        while True:
+            v = self.pv_end.get()
+            if v is not None and int(v) == 1:
+                break
+            if time.time() >= t_deadline:
+                raise TimeoutError("IPBSM measurement timeout (ENDai never became 1)")
+            time.sleep(poll)
+
+        # ENDai reset
+        self.pv_end.put(0)
+
+        # --- E) datafileの更新(mtime)を待つ ---
+        t_file_deadline = time.time() + float(file_wait)
+
+        # キャッシュ対策のつもりのscandirは「呼ぶなら」iterateしないと効果薄いです
+        # (それでもOS/NAS側の性質で効かないことはあります)
+        try:
+            for _ in os.scandir(os.path.dirname(self.datafile)):
+                break
+        except Exception:
+            pass
+
+        last_seen_mtime = prev_mtime
+        while True:
             try:
-                prev_mtime = os.path.getmtime(self.datafile)
+                mtime = os.path.getmtime(self.datafile)
             except FileNotFoundError:
-                prev_mtime = 0.0
+                mtime = 0.0
 
-            # --- B) ENDai張り付き対策 ---
-            self.pv_end.put(0)
-            time.sleep(0.2)
+            last_seen_mtime = mtime
 
-            # --- C) trigger ---
-            self.pv_trigger.put(1)
+            if mtime > prev_mtime:
+                break
 
-            # --- D) ENDai==1待ち ---
-            t_deadline = time.time() + float(timeout)
-            while True:
-                v = self.pv_end.get()
-                if v is not None and int(v) == 1:
-                    break
-                if time.time() >= t_deadline:
-                    raise TimeoutError("IPBSM measurement timeout (ENDai never became 1)")
-                time.sleep(poll)
+            if time.time() >= t_file_deadline:
+                raise TimeoutError(
+                    f"IPBSM datafile not updated: prev_mtime={prev_mtime}, last_mtime={last_seen_mtime}"
+                )
 
-            # ENDai reset
-            self.pv_end.put(0)
+            time.sleep(poll)
 
-            # --- E) datafileの更新(mtime)を待つ ---
-            t_file_deadline = time.time() + float(file_wait)
+        # --- F) read dat ---
+        with open(self.datafile, "rb") as f:
+            raw = f.read()
 
-            # キャッシュ対策のつもりのscandirは「呼ぶなら」iterateしないと効果薄いです
-            # (それでもOS/NAS側の性質で効かないことはあります)
-            try:
-                for _ in os.scandir(os.path.dirname(self.datafile)):
-                    break
-            except Exception:
-                pass
+        res = decode_ipbsm_dat(raw)
+        modulation = float(res["modulation"])
+        error = abs(float(res["error"]))
 
-            last_seen_mtime = prev_mtime
-            while True:
-                try:
-                    mtime = os.path.getmtime(self.datafile)
-                except FileNotFoundError:
-                    mtime = 0.0
+        # --- G) ここで「今回のmtime」をログに出せる ---
+        # GUIログに出したいなら print ではなく progress/emit 経由にする
+        print(f"[IPBSM] datafile mtime={last_seen_mtime} (prev={prev_mtime}) mod={modulation} err={error}")
 
-                last_seen_mtime = mtime
-
-                if mtime > prev_mtime:
-                    break
-
-                if time.time() >= t_file_deadline:
-                    raise TimeoutError(
-                        f"IPBSM datafile not updated: prev_mtime={prev_mtime}, last_mtime={last_seen_mtime}"
-                    )
-
-                time.sleep(poll)
-
-            # --- F) read dat ---
-            with open(self.datafile, "rb") as f:
-                raw = f.read()
-
-            res = decode_ipbsm_dat(raw)
-            modulation = float(res["modulation"])
-            error = abs(float(res["error"]))
-
-            # --- G) ここで「今回のmtime」をログに出せる ---
-            # GUIログに出したいなら print ではなく progress/emit 経由にする
-            print(f"[IPBSM] datafile mtime={last_seen_mtime} (prev={prev_mtime}) mod={modulation} err={error}")
-
-            return modulation, error
-
-
-
-        
-
-
+        return modulation, error     
 
     def vary_magnet_position(self, name: str, dx: float, dy: float,
                             wait: bool = True,
@@ -231,14 +214,7 @@ class IPBSMInterface:
                             settle_dt: float = 0.5,
                             tol: float = 0.01,
                             use_dotrim: bool = True):
-        """
-        Move magnet/mover by relative offset (dx, dy).
-        - Writes DES:X, DES:Y with current + delta.
-        - Optionally triggers :DOTRIM (if exists).
-        - Waits until readback PVs reach target within tol.
 
-        tol unit must match your readback PV units (e.g. mm or um).
-        """
 
         pv_des_x = f"{name}:DES:X"
         pv_des_y = f"{name}:DES:Y"
@@ -272,7 +248,6 @@ class IPBSMInterface:
         while attempt < max_attempts:
             attempt += 1
 
-            # trigger trim if available
             if use_dotrim:
                 try:
                     caput(pv_dotrim, 1)
@@ -280,7 +255,6 @@ class IPBSMInterface:
                 except Exception:
                     pass
 
-                # wait until DOTRIM becomes 0 (done) or timeout
                 t_deadline = time.time() + float(attempt_timeout)
                 timed_out_this_attempt = False
 
@@ -306,7 +280,6 @@ class IPBSMInterface:
 
                     time.sleep(settle_dt)
 
-            # readbacks
             try:
                 xm = float(caget(pv_rb_x) or 0.0)
                 ym = float(caget(pv_rb_y) or 0.0)
@@ -319,7 +292,6 @@ class IPBSMInterface:
             if abs(xm - x_target) <= tol and abs(ym - y_target) <= tol:
                 return  # SUCCESS
 
-        # max_attempts まで行っても成功しなかった
         raise TimeoutError(
             f"{name} did not reach target. last=({last_xm},{last_ym}) "
             f"target=({x_target},{y_target}) tol={tol} any_timeout={any_timeout}"
