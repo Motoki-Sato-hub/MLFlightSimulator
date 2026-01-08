@@ -12,3 +12,6 @@ Data/**
 *.pkl
 *.csv
 *.h5
+
+__pycache__/
+*.pyc
